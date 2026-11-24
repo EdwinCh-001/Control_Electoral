@@ -159,7 +159,20 @@ export class SupabaseAuthRepository implements AuthRepository {
         throw this.toUserError(error.message);
       }
 
-      return this.addCantonNames(data);
+      const { data: assignments, error: assignmentError } = await client
+        .from("precinct_coordinators")
+        .select("precinct_id");
+
+      if (assignmentError) {
+        throw this.toUserError(assignmentError.message);
+      }
+
+      const assignedPrecinctIds = new Set(
+        assignments.map((assignment) => assignment.precinct_id),
+      );
+      return this.addCantonNames(
+        data.filter((precinct) => !assignedPrecinctIds.has(precinct.id)),
+      );
     }
 
     if (profile.role === "precinct_coordinator") {
@@ -333,9 +346,20 @@ export class SupabaseAuthRepository implements AuthRepository {
     message: string;
     context?: unknown;
   }): Promise<Error> {
-    if (error.context instanceof Response) {
+    // React Native can use a fetch polyfill, so `instanceof Response` is not
+    // reliable here. Duck-type the response instead to surface the function's
+    // real error message.
+    const context = error.context;
+    const response =
+      context !== null &&
+      typeof context === "object" &&
+      typeof (context as Response).json === "function"
+        ? (context as Response)
+        : null;
+
+    if (response) {
       try {
-        const body: unknown = await error.context.json();
+        const body: unknown = await response.json();
         if (
           typeof body === "object" &&
           body !== null &&
@@ -343,6 +367,14 @@ export class SupabaseAuthRepository implements AuthRepository {
           typeof body.error === "string"
         ) {
           return new Error(body.error);
+        }
+        if (
+          typeof body === "object" &&
+          body !== null &&
+          "message" in body &&
+          typeof body.message === "string"
+        ) {
+          return new Error(body.message);
         }
       } catch {
         return new Error("El servidor no pudo completar la operación.");

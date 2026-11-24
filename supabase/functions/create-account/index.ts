@@ -15,22 +15,10 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 function makeTemporaryPassword(): string {
-  const uppercase = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const lowercase = "abcdefghijkmnopqrstuvwxyz";
-  const digits = "23456789";
-  const symbols = "!@#$%_-";
-  const alphabet = uppercase + lowercase + digits + symbols;
-  const randomValues = crypto.getRandomValues(new Uint8Array(32));
-  return [
-    uppercase[randomValues[0] % uppercase.length],
-    lowercase[randomValues[1] % lowercase.length],
-    digits[randomValues[2] % digits.length],
-    symbols[randomValues[3] % symbols.length],
-    ...Array.from(
-      randomValues.slice(4),
-      (value) => alphabet[value % alphabet.length],
-    ),
-  ].join("");
+  // Six-digit code: easy to read and dictate over the phone. It is replaced on
+  // first sign-in because the profile is created with must_change_password.
+  const digits = crypto.getRandomValues(new Uint8Array(6));
+  return Array.from(digits, (value) => String(value % 10)).join("");
 }
 
 function parsePayload(value: unknown): CreateAccountPayload | null {
@@ -158,6 +146,25 @@ Deno.serve(async (request) => {
       });
     }
 
+    const { data: currentAssignment, error: currentAssignmentError } =
+      await adminClient
+        .from("precinct_coordinators")
+        .select("user_id")
+        .eq("precinct_id", precinct.id)
+        .maybeSingle();
+
+    if (currentAssignmentError) {
+      return jsonResponse(500, {
+        error: "No se pudo verificar si el recinto ya tiene coordinador.",
+      });
+    }
+    if (currentAssignment) {
+      return jsonResponse(409, {
+        error:
+          "Este recinto ya tiene coordinador asignado. El coordinador se define al crear su cuenta; elige un recinto sin coordinador.",
+      });
+    }
+
     newRole = "precinct_coordinator";
     precinctId = precinct.id;
   } else if (actor.role === "precinct_coordinator") {
@@ -244,7 +251,6 @@ Deno.serve(async (request) => {
     });
   }
 
-  let coordinatorAssignmentCreated = false;
   if (newRole === "precinct_coordinator" && precinctId) {
     const { error: assignmentError } = await adminClient
       .from("precinct_coordinators")
@@ -252,6 +258,7 @@ Deno.serve(async (request) => {
         precinct_id: precinctId,
         user_id: newUserId,
         assigned_by: actor.id,
+        assigned_at: new Date().toISOString(),
       });
 
     if (assignmentError) {
@@ -263,10 +270,10 @@ Deno.serve(async (request) => {
         });
       }
       return jsonResponse(409, {
-        error: "No se pudo asignar el coordinador al recinto.",
+        error:
+          "El recinto ya tiene coordinador asignado. Actualiza la lista y elige un recinto sin coordinador.",
       });
     }
-    coordinatorAssignmentCreated = true;
   }
 
   const mailClient = createClient(supabaseUrl, anonKey, {
@@ -278,23 +285,20 @@ Deno.serve(async (request) => {
   });
 
   if (emailError) {
-    if (coordinatorAssignmentCreated && precinctId) {
-      const { error: assignmentCleanupError } = await adminClient
-        .from("precinct_coordinators")
-        .delete()
-        .eq("precinct_id", precinctId)
-        .eq("user_id", newUserId);
-      if (assignmentCleanupError) {
-        return jsonResponse(500, {
-          error: "Falló el envío y no se pudo limpiar la asignación; requiere revisión administrativa.",
-        });
-      }
-    }
+    const { error: assignmentCleanupError } =
+      newRole === "precinct_coordinator" && precinctId
+        ? await adminClient
+            .from("precinct_coordinators")
+            .delete()
+            .eq("precinct_id", precinctId)
+            .eq("user_id", newUserId)
+        : { error: null };
     const { error: userCleanupError } =
       await adminClient.auth.admin.deleteUser(newUserId);
-    if (userCleanupError) {
+    if (assignmentCleanupError || userCleanupError) {
       return jsonResponse(500, {
-        error: "Falló el envío y no se pudo limpiar la cuenta; requiere revisión administrativa.",
+        error:
+          "Falló el envío y no se pudo limpiar la asignación o la cuenta; requiere revisión administrativa.",
       });
     }
     return jsonResponse(502, {

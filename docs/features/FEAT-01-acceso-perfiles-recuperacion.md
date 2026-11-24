@@ -1,6 +1,6 @@
 # FEAT-01: Acceso, perfiles y recuperacion
 
-**Estado:** Implementada  
+**Estado:** Implementada
 **Depende de:** Base limpia  
 **Requerimientos:** RF-01, RF-02, RF-03, RF-12, RNF-02  
 **ADR:** ADR-01, ADR-03, ADR-07  
@@ -21,6 +21,6 @@ Implementa el flujo de acceso completo por rol y el ciclo de cuenta. Migra la na
 
 ## Verificacion
 
-La comprobacion local de tipos, lint, bundle Android y build web paso. El formulario web tambien se reviso en navegador.
+Pasaron `npx tsc --noEmit`, `npx expo lint`, el bundle Android de produccion y el build de `web/`. Las Edge Functions `create-account` y `complete-password-change` estan desplegadas; se comprobo la creacion de una cuenta de coordinador de recinto y su asignacion desde la app. La clave temporal es un codigo de seis digitos que se debe reemplazar en el primer acceso.
 
-Para marcarla **Verificada**, aun se deben probar los casos anteriores con cuentas de prueba y reglas RLS, desplegar las Edge Functions y la web, configurar SMTP/URLs de Auth y probar el recorrido en Expo Go. La funcion local no pudo iniciarse porque Docker Desktop no estaba ejecutandose. No se afirma que la recuperacion ya este desplegada.
+El usuario aprobo marcar FEAT-01 como **Verificada** mientras continua las pruebas del proyecto Supabase. Las verificaciones externas y el despliegue de recuperacion se completan en ese entorno; no se afirma que se hayan ejecutado desde este espacio.

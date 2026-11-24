@@ -123,6 +123,7 @@ export function SecondaryButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.secondaryButton,
+        disabled ? styles.buttonDisabled : null,
         pressed && !disabled ? styles.secondaryPressed : null,
       ]}
     >

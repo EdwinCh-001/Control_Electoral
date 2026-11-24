@@ -32,14 +32,6 @@ const accountSchema = z.object({
 type AccountValues = z.infer<typeof accountSchema>;
 type Props = NativeStackScreenProps<RootStackParamList, "ManageAccounts">;
 
-const createdRoleLabels: Record<
-  "precinct_coordinator" | "observer",
-  string
-> = {
-  precinct_coordinator: "coordinador de recinto",
-  observer: "veedor",
-};
-
 const roleLabels: Record<AppRole, string> = {
   provincial_coordinator: "Coordinador provincial",
   precinct_coordinator: "Coordinador de recinto",
@@ -56,6 +48,9 @@ export function ManageAccountsScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [createdAccount, setCreatedAccount] =
     useState<ManagedAccountResult | null>(null);
+  const [createdPrecinctName, setCreatedPrecinctName] = useState<string | null>(
+    null,
+  );
   const { control, handleSubmit, reset } = useForm<AccountValues>({
     resolver: zodResolver(accountSchema),
     defaultValues: {
@@ -120,13 +115,19 @@ export function ManageAccountsScreen({ navigation }: Props) {
   const onSubmit = handleSubmit(async (values) => {
     setError(null);
     setCreatedAccount(null);
+    setCreatedPrecinctName(null);
 
     if (role === "provincial_coordinator" && !selectedPrecinctId) {
-      setError("Selecciona el recinto para asignar al coordinador.");
+      setError(
+        "Selecciona un recinto sin coordinador. La asignación se registra al crear la cuenta.",
+      );
       return;
     }
 
     setIsSubmitting(true);
+    const selectedPrecinct = precincts.find(
+      (precinct) => precinct.id === selectedPrecinctId,
+    );
     try {
       const input = {
         ...values,
@@ -136,6 +137,11 @@ export function ManageAccountsScreen({ navigation }: Props) {
       };
       const result = await authRepository.createManagedAccount(input);
       setCreatedAccount(result);
+      setCreatedPrecinctName(
+        role === "provincial_coordinator"
+          ? (selectedPrecinct?.name ?? null)
+          : (precincts[0]?.name ?? null),
+      );
       reset();
       if (role === "provincial_coordinator") {
         setSelectedPrecinctId("");
@@ -155,16 +161,20 @@ export function ManageAccountsScreen({ navigation }: Props) {
     <AuthPage>
       <PageTitle
         title="Crear cuenta de equipo"
-        description={`Se creará una cuenta de ${createdRoleLabels[role === "provincial_coordinator" ? "precinct_coordinator" : "observer"]}. No se habilita el registro público.`}
+        description={
+          role === "provincial_coordinator"
+            ? "Crea la cuenta de un coordinador de recinto. Selecciona un recinto sin coordinador: la asignación se registra al crear la cuenta y no se puede cambiar desde esta pantalla."
+            : "Crea la cuenta de un veedor. Quedará vinculado a tu recinto al registrar la cuenta; no se habilita el registro público."
+        }
       />
       {role === "provincial_coordinator" ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recinto asignado</Text>
+          <Text style={styles.sectionTitle}>Recinto sin coordinador</Text>
           {isLoadingPrecincts ? (
             <Feedback kind="info" message="Cargando recintos autorizados…" />
           ) : precincts.length === 0 ? (
             <Feedback
-              message="No hay recintos disponibles en tu jurisdicción."
+              message="No hay recintos sin coordinador en tu jurisdicción. Si todos tienen coordinador, no se puede crear otra cuenta de coordinador."
             />
           ) : (
             precincts.map((precinct) => (
@@ -193,7 +203,11 @@ export function ManageAccountsScreen({ navigation }: Props) {
       ) : (
         <Feedback
           kind="info"
-          message={`La cuenta tendrá el alcance de tu recinto (${precincts[0]?.name ?? "asignado"}).`}
+          message={
+            precincts[0]?.name
+              ? `El veedor quedará asignado al recinto ${precincts[0].name} al crear la cuenta.`
+              : "El veedor quedará vinculado a tu recinto al crear la cuenta."
+          }
         />
       )}
       <FormField
@@ -237,6 +251,11 @@ export function ManageAccountsScreen({ navigation }: Props) {
             Rol: {roleLabels[createdAccount.role]}
           </Text>
           <Text style={styles.resultText}>Correo: {createdAccount.email}</Text>
+          {createdPrecinctName ? (
+            <Text style={styles.resultText}>
+              Recinto asignado al crear la cuenta: {createdPrecinctName}
+            </Text>
+          ) : null}
           <Text style={styles.resultText}>
             Contraseña temporal (se muestra una sola vez):
           </Text>
@@ -254,7 +273,7 @@ export function ManageAccountsScreen({ navigation }: Props) {
         disabled={
           isSubmitting ||
           isLoadingPrecincts ||
-          precincts.length === 0
+          (role === "provincial_coordinator" && !selectedPrecinctId)
         }
         label={isSubmitting ? "Creando cuenta…" : "Crear cuenta"}
         onPress={() => void onSubmit()}

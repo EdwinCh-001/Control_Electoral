@@ -32,7 +32,21 @@
           "imageWidth": 76
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Se necesita la cámara para fotografiar el acta electoral.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Se necesita la ubicación para asociarla con la fotografía del acta."
+        }
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "reactCompiler": true

@@ -1,6 +1,6 @@
 # FEAT-04: Sincronizacion, correcciones y auditoria
 
-**Estado:** Pendiente  
+**Estado:** Implementada  
 **Depende de:** FEAT-03  
 **Requerimientos:** RF-10, RF-11, RF-12, RNF-01, RNF-02, RNF-03  
 **ADR:** ADR-01, ADR-02, ADR-03, ADR-06  
@@ -8,7 +8,7 @@
 
 ## Encargo para la IA
 
-Completa el procesamiento durable de la cola offline y el ciclo de correccion. Implementa las fases acordadas, reintentos, estados, notificacion local y registro auditable de cambios. No agregues un scheduler o dependencia que no este aprobada.
+Completa el procesamiento durable de la cola offline y el ciclo de correccion. Implementa las fases acordadas, reintentos, estados, avisos dentro de la aplicacion y registro auditable de cambios. No agregues un scheduler o dependencia que no este aprobada.
 
 ## Criterios de aceptacion
 
@@ -16,10 +16,13 @@ Completa el procesamiento durable de la cola offline y el ciclo de correccion. I
 - Los trabajos pendientes sobreviven reinicios y los reintentos no crean actas duplicadas. `failure_stage` identifica si debe reintentarse OCR o envio.
 - Cada revision completa se persiste atomica mediante `save_acta_revision`, incluyendo acta y cinco candidaturas; el cliente no escribe directamente esas tablas. `submit_acta` valida y confirma el envio.
 - OCR y sincronizacion tienen estados distinguibles. Un error se puede reintentar sin perder la imagen ni los datos revisados.
+- La autorizacion humana de envio se persiste localmente y la cola no envia borradores sin autorizacion.
+- Los avisos de revision, envio y fallo se muestran dentro de la aplicacion, sin notificaciones del sistema ni dependencias nuevas.
 - El veedor corrige sus mesas y el coordinador corrige las actas de su recinto; cada cambio conserva autor, hora de dispositivo y hora de recepcion del servidor.
 - Los conflictos siguen S-03. Si dos cambios tienen la misma marca temporal, no se inventa un desempate silencioso: se informa como decision pendiente.
 - Se prueban desconexion, reconexion, error de red, reintento, edicion concurrente, auditoria y acceso no autorizado.
 - Se prueba ejecucion en segundo plano con APK EAS; Android puede diferir los trabajos.
+- La integracion nativa de Crashlytics y la validacion del APK se completan en FEAT-05, que concentra la observabilidad y entrega Android.
 
 ## Estados de sincronizacion
 

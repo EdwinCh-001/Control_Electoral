@@ -1,6 +1,6 @@
 # FEAT-03: Captura, validacion y revision de actas
 
-**Estado:** Pendiente  
+**Estado:** Implementada
 **Depende de:** FEAT-01 y FEAT-02  
 **Requerimientos:** RF-07, RF-08, RF-09, RF-10, RNF-01  
 **ADR:** ADR-02, ADR-04, ADR-05, ADR-07  
@@ -22,3 +22,5 @@ Implementa desde una mesa asignada el recorrido completo de captura para alcaldi
 ## Verificacion
 
 Probar ambas dignidades, cuadre positivo/negativo, permiso de camara, imagen nitida/borrosa, GPS dentro/fuera de rango, OCR con campos ilegibles y persistencia offline. Si falta calibracion real de nitidez, reportarla sin escoger un umbral arbitrario.
+
+La implementacion paso `npx tsc --noEmit`, `npm run lint` y el empaquetado `npx expo export --platform android`. La validacion manual en dispositivo, el despliegue de la Edge Function, las migraciones y la calibracion de nitidez dependen del proyecto Supabase y de los datos/dispositivos del equipo; quedan pendientes antes de marcarla **Verificada**.

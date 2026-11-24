@@ -47,7 +47,7 @@ function AuthBootstrap() {
       },
     );
 
-    void authRepository
+    void repository
       .restoreSession()
       .then((session) => {
         if (active) {

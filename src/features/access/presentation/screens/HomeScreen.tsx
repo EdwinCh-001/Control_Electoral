@@ -65,11 +65,29 @@ export function HomeScreen({ navigation }: Props) {
         <Text style={styles.email}>{session.email}</Text>
       </View>
       {error ? <Feedback message={error} /> : null}
-      {canManageAccounts ? (
+      {session.profile.role === "observer" ? (
         <PrimaryButton
-          label="Crear cuenta de equipo"
-          onPress={() => navigation.navigate("ManageAccounts")}
+          label="Capturar y revisar actas"
+          onPress={() => navigation.navigate("ActaList")}
         />
+      ) : null}
+      {session.profile.role === "precinct_coordinator" ? (
+        <PrimaryButton
+          label="Revisar y corregir actas del recinto"
+          onPress={() => navigation.navigate("ActaList")}
+        />
+      ) : null}
+      {canManageAccounts ? (
+        <>
+          <PrimaryButton
+            label="Administrar territorio y asignaciones"
+            onPress={() => navigation.navigate("TerritoryManagement")}
+          />
+          <SecondaryButton
+            label="Crear cuenta de equipo"
+            onPress={() => navigation.navigate("ManageAccounts")}
+          />
+        </>
       ) : null}
       <SecondaryButton
         disabled={isSigningOut}

@@ -16,6 +16,10 @@ import { ForgotPasswordScreen } from "../screens/ForgotPasswordScreen";
 import { HomeScreen } from "../screens/HomeScreen";
 import { ManageAccountsScreen } from "../screens/ManageAccountsScreen";
 import { SignInScreen } from "../screens/SignInScreen";
+import { TerritoryManagementScreen } from "../../../territory/presentation/TerritoryManagementScreen";
+import { ActaEditorScreen } from "../../../actas/presentation/ActaEditorScreen";
+import { ActaHistoryScreen } from "../../../actas/presentation/ActaHistoryScreen";
+import { ActaListScreen } from "../../../actas/presentation/ActaListScreen";
 import {
   AuthPage,
   Feedback,
@@ -35,6 +39,10 @@ const linking: LinkingOptions<RootStackParamList> = {
       ChangePassword: "change-password",
       Home: "home",
       ManageAccounts: "manage-accounts",
+      TerritoryManagement: "territory",
+      ActaList: "actas",
+      ActaEditor: "actas/:actaId",
+      ActaHistory: "actas/:actaId/history",
     },
   },
 };
@@ -142,6 +150,19 @@ export function RootNavigator() {
                 name="ManageAccounts"
                 component={ManageAccountsScreen}
               />
+            ) : null}
+            {session.profile.role !== "observer" ? (
+              <Stack.Screen
+                name="TerritoryManagement"
+                component={TerritoryManagementScreen}
+              />
+            ) : null}
+            {session.profile.role !== "provincial_coordinator" ? (
+              <>
+                <Stack.Screen name="ActaList" component={ActaListScreen} />
+                <Stack.Screen name="ActaEditor" component={ActaEditorScreen} />
+                <Stack.Screen name="ActaHistory" component={ActaHistoryScreen} />
+              </>
             ) : null}
           </>
         )}
