@@ -1,41 +1,42 @@
-This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
+# Control Electoral
 
-## Expo has changed — do not trust your training data
+Aplicacion movil Expo/React Native para registrar y consultar actas electorales. La documentacion del proyecto esta en espanol; el codigo, nombres de archivos y simbolos tecnicos van en ingles.
 
-Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:
+## Fuentes de verdad
 
-1. Read the major version of the `expo` package in `package.json`.
-2. Fetch the matching versioned docs: `https://docs.expo.dev/versions/v<major>.0.0/`
-3. For anything else, fetch https://docs.expo.dev/llms.txt — an index of all Expo docs with corrections to common LLM misconceptions. Follow its links to the specific page you need; never answer from memory.
+- `docs/requirements/`: requerimientos funcionales, no funcionales y supuestos.
+- `docs/adr/`: las siete decisiones tecnicas acordadas. No introducir herramientas o decisiones nuevas fuera de ellas.
+- `docs/features/`: alcance, criterios y encargo ejecutable de cada feature FDD completa.
+- `docs/status.md`: indice ordenado y estado de las features.
+- `supabase/migrations/`: esquema y politicas SQL; aplica las instrucciones de `supabase/README.md`.
 
-## Commands
+Si una regla funcional no esta definida en esos documentos, no la inventes; deja constancia y consulta antes de implementarla.
 
-Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
+## Arquitectura
+
+- Organiza el codigo por funcionalidades completas en `src/features/<feature>/`, cada una con `domain/`, `data/`, `infrastructure/` y `presentation/` cuando aplique.
+- `domain/` contiene entidades, reglas y casos de uso; no depende de React Native, Supabase, SQLite ni servicios del dispositivo.
+- `data/` implementa repositorios y mapeos; `infrastructure/` adapta los servicios externos y del dispositivo; `presentation/` contiene pantallas, formularios y estado de interfaz.
+- `src/app/` contiene la configuracion y los navegadores de React Navigation, no reglas de negocio.
+- `src/shared/` es solo para codigo genuinamente compartido. No conviertas cada componente o tarea pequena en una feature.
+- Usa Redux Toolkit para el estado global acordado; conserva el estado local de interfaz en la pantalla cuando sea suficiente. Formularios: React Hook Form y Zod.
+- Las dependencias apuntan hacia `domain/`; las implementaciones externas no se importan desde el dominio.
+
+## Forma de trabajo
+
+- Implementa un flujo vertical completo leyendo su ficha en `docs/features/`, incluyendo interfaz, dominio, persistencia/integraciones y pruebas pertinentes. No dividas el trabajo en fichas Markdown por microtareas.
+- Mantén cada ADR en su alcance: contexto tecnico, stack/decision, ventajas o limitaciones y consecuencias. La logica funcional pertenece a requerimientos y supuestos.
+- No inventes provincia, canton, candidatos, colores, proveedor de mapas, proveedor SMTP ni modelo/version de Gemini.
+- No incluyas claves privadas, `service_role`, tokens ni datos personales en la app o en logs.
+- Nunca ejecutes una migracion sobre produccion sin haberla probado en desarrollo y respaldado la base.
+- Expo Go se usa para recorridos habituales. Valida Crashlytics y el comportamiento nativo de segundo plano con un APK de EAS; Android puede posponer tareas de fondo.
+- No edites `android/` o `ios/` manualmente. Antes de usar una API nativa, consulta la documentacion compatible con la version instalada de Expo.
+
+## Verificacion
 
 ```bash
-npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — resolves SDK-compatible versions
-npx expo start              # start the dev server
-npx expo lint               # lint
-npx tsc --noEmit            # typecheck
-npx expo-doctor             # diagnose dependency and config issues
-npx expo install --fix      # fix incompatible package versions
+npx expo lint
+npx tsc --noEmit
 ```
 
-Run lint and typecheck before declaring any task done.
-
-## Navigation & Routing
-
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
-
-## Building with EAS
-
-Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
-Docs: https://docs.expo.dev/eas/index.md
-
-## Rules
-
-- If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
-- Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
-- Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+Prueba los recorridos de aceptacion de la feature y actualiza `docs/status.md`. No marques un flujo como verificado sin completar las pruebas definidas.
