@@ -14,7 +14,8 @@ export const supabase =
         auth: {
           autoRefreshToken: true,
           detectSessionInUrl: true,
-          flowType: "pkce",
+          // Recovery links are issued by the mobile client without its local PKCE verifier.
+          flowType: "implicit",
           persistSession: true,
         },
       })

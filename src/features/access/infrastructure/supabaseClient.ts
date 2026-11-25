@@ -59,6 +59,7 @@ export const supabaseConfigurationError =
       : null;
 
 let supabaseClient: SupabaseClient<Database> | null = null;
+let passwordRecoveryClient: SupabaseClient<Database> | null = null;
 
 if (!supabaseConfigurationError) {
   supabaseClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
@@ -70,8 +71,21 @@ if (!supabaseConfigurationError) {
       flowType: "pkce",
     },
   });
+  // The recovery link opens in a browser that cannot access the mobile PKCE verifier.
+  passwordRecoveryClient = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+      flowType: "implicit",
+    },
+  });
 }
 
 export function getSupabaseClient(): SupabaseClient<Database> | null {
   return supabaseClient;
+}
+
+export function getPasswordRecoveryClient(): SupabaseClient<Database> | null {
+  return passwordRecoveryClient;
 }

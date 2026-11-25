@@ -23,7 +23,10 @@ const profileColumns =
   "id, role, province_id, full_name, email, must_change_password";
 
 export class SupabaseAuthRepository implements AuthRepository {
-  constructor(private readonly client: SupabaseClient<Database> | null) {}
+  constructor(
+    private readonly client: SupabaseClient<Database> | null,
+    private readonly passwordRecoveryClient: SupabaseClient<Database> | null,
+  ) {}
 
   isConfigured(): boolean {
     return this.client !== null;
@@ -83,6 +86,11 @@ export class SupabaseAuthRepository implements AuthRepository {
   }
 
   async requestPasswordReset(email: string): Promise<void> {
+    if (!this.passwordRecoveryClient) {
+      throw new Error(
+        supabaseConfigurationError ?? "No se pudo configurar la recuperación.",
+      );
+    }
     if (!recoveryRedirectUrl) {
       throw new Error(
         "Configura EXPO_PUBLIC_PASSWORD_RESET_URL con la URL desplegada de recuperación.",
@@ -104,9 +112,10 @@ export class SupabaseAuthRepository implements AuthRepository {
       throw new Error("La URL de recuperación debe usar HTTPS.");
     }
 
-    const { error } = await this.getClient().auth.resetPasswordForEmail(email, {
-      redirectTo: redirectUrl.toString(),
-    });
+    const { error } = await this.passwordRecoveryClient.auth.resetPasswordForEmail(
+      email,
+      { redirectTo: redirectUrl.toString() },
+    );
 
     if (error) {
       throw this.toUserError(error.message);

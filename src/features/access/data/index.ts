@@ -1,4 +1,10 @@
 import { SupabaseAuthRepository } from "./SupabaseAuthRepository";
-import { getSupabaseClient } from "../infrastructure/supabaseClient";
+import {
+  getPasswordRecoveryClient,
+  getSupabaseClient,
+} from "../infrastructure/supabaseClient";
 
-export const authRepository = new SupabaseAuthRepository(getSupabaseClient());
+export const authRepository = new SupabaseAuthRepository(
+  getSupabaseClient(),
+  getPasswordRecoveryClient(),
+);

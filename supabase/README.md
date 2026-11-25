@@ -72,6 +72,14 @@ El resultado esperado es una fila por dignidad con `candidates = 5` y `organizat
 15. Antes de aceptar fotos, calibra `EXPO_PUBLIC_IMAGE_SHARPNESS_THRESHOLD` con fotografias de prueba reales tomadas con los dispositivos y condiciones de uso. La app bloquea la aceptacion mientras la variable falte o no sea valida; no uses un umbral supuesto.
 16. Si un proyecto de desarrollo aplico una version anterior, ejecuta unicamente las migraciones que falten, en orden. Para cambios futuros, crea una nueva migracion numerada (`0006_...sql` o superior) y pruebala en desarrollo. No reescribas una migracion que ya se aplico ni la ejecutes sobre produccion sin respaldo y verificacion.
 
+## Vigencia de enlaces y sesiones
+
+En **Authentication → Sign In / Providers → Email**, configura **Email OTP expiration** en `43200` segundos (12 horas). Este valor también controla la vigencia de los enlaces de recuperación, confirmación y otros enlaces enviados por correo. Los enlaces son de un solo uso; los ya enviados conservan la vigencia anterior, así que solicita uno nuevo después del cambio.
+
+En **Authentication → Sessions**, configura **Inactivity timeout** en 30 días y deja **Time-box user sessions** sin límite. Los límites de sesión requieren un plan Supabase Pro o superior. Mantén **JWT expiry** en el valor recomendado de 3600 segundos: la app conserva la sesión mediante el refresh token y lo renueva automáticamente, no necesita un JWT de larga duración. La app móvil guarda la sesión en SecureStore.
+
+La app inicia sesión normalmente con PKCE. La solicitud de recuperación usa un cliente separado para que el enlace pueda abrirse en el navegador aunque se haya solicitado desde el móvil; la web procesa el token de recuperación recibido y lo elimina de la URL al crear la sesión.
+
 ## Consultas de comprobacion
 
 Se pueden ejecutar en SQL Editor para revisar la estructura (no para probar RLS):
