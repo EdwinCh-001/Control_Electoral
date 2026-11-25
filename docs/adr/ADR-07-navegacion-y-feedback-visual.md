@@ -19,8 +19,8 @@ Muchos veedores son adultos mayores y con poca experiencia tecnológica debe hab
 
 ## Decision
 
-REACT NAVIGATION, @GORHOM/BOTTOM-SHEET, LOTTIE-REACT-NATIVE, REACT-NATIVE-REANIMATED, UNIWIND, LUCIDE-REACT-NATIVE. La interfaz usa la paleta ADN-7 (blanco, morado y amarillo) definida en `.github/skills/README.md` y `src/global.css`, con un fondo global de flow-lines trazado con `react-native-svg` detrás del contenido.
+REACT NAVIGATION, @GORHOM/BOTTOM-SHEET, LOTTIE-REACT-NATIVE, REACT-NATIVE-REANIMATED, UNIWIND. La interfaz usa la paleta ADN-7 (blanco, morado y amarillo) definida en `.github/skills/README.md` y `src/global.css`
 
 ## Consecuencias
 
-Es tener una mayor gama de estilos, con interfaz más intuitiva para el usuario. La paleta ADN-7 y los iconos Lucide permiten menos texto en pantalla, conservando alto contraste y una identidad propia. Las flow-lines refuerzan la identidad sin tapar tarjetas ni interceptar gestos; al ser decorativas, no sustituyen feedback accesible.
+Es tener una mayor gama de estilos, con interfaz más intuitiva para el usuario. La paleta ADN-7 conservar alto contraste y una identidad propia. 
