@@ -1,3 +1,5 @@
+import type { PollingStationSex } from "../../../shared/domain/pollingStation";
+
 export type ElectoralOffice = "mayor" | "prefect";
 
 export type ActaStatus =
@@ -14,6 +16,7 @@ export type FailureStage = "ocr" | "submission";
 export interface AssignedStation {
   id: string;
   stationNumber: number;
+  sex: PollingStationSex | null;
   precinctId: string;
   precinctName: string;
 }
@@ -36,6 +39,7 @@ export interface ActaDraft {
   ownerId: string;
   pollingStationId: string;
   stationNumber: number;
+  stationSex: PollingStationSex | null;
   precinctId: string;
   precinctName: string;
   office: ElectoralOffice;
@@ -60,6 +64,7 @@ export interface ActaSummary {
   id: string;
   pollingStationId: string;
   stationNumber: number;
+  stationSex: PollingStationSex | null;
   precinctName: string;
   office: ElectoralOffice;
   status: ActaStatus;
@@ -67,6 +72,18 @@ export interface ActaSummary {
   updatedAt: string;
   localDraft: boolean;
   correctionMode: boolean;
+}
+
+export interface ProvincialActaLocation {
+  id: string;
+  precinctName: string;
+  stationNumber: number;
+  stationSex: PollingStationSex | null;
+  office: ElectoralOffice;
+  latitude: number;
+  longitude: number;
+  capturedAtDevice: string;
+  warningMeters: number | null;
 }
 
 export interface QueueResult {
@@ -107,6 +124,8 @@ export interface OCRProposal {
 }
 
 export interface ActaRepository {
+  getCachedStations(userId: string): Promise<AssignedStation[]>;
+  getLocationReference(precinctId: string): Promise<Location | null>;
   loadActaStations(
     userId: string,
     role: "observer" | "precinct_coordinator",
@@ -124,6 +143,7 @@ export interface ActaRepository {
   getDraft(id: string, userId: string): Promise<ActaDraft | null>;
   beginCorrection(userId: string, id: string): Promise<ActaDraft>;
   loadAuditHistory(actaId: string): Promise<ActaAuditEntry[]>;
+  loadProvincialActaLocations(): Promise<ProvincialActaLocation[]>;
   saveDraft(draft: ActaDraft): Promise<void>;
   acceptCameraPhoto(
     draft: ActaDraft,

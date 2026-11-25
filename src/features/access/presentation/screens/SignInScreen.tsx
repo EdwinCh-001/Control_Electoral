@@ -2,9 +2,11 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Text } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { Lock, Mail } from "lucide-react-native";
+import { StyleSheet, View } from "react-native";
 
+import { spacing } from "../../../../shared/presentation/theme";
 import { useAuthRepository } from "../AuthRepositoryContext";
 import { setSession } from "../authSlice";
 import { useAppDispatch } from "../../../../app/store";
@@ -56,43 +58,53 @@ export function SignInScreen({ navigation }: Props) {
 
   return (
     <AuthPage>
-      <PageTitle
-        title="Iniciar sesión"
-        description="Ingresa con la cuenta que te proporcionó tu coordinador."
-      />
-      <FormField
-        autoCapitalize="none"
-        autoComplete="email"
-        control={control}
-        keyboardType="email-address"
-        label="Correo electrónico"
-        name="email"
-        placeholder="nombre@correo.com"
-        textContentType="emailAddress"
-      />
-      <FormField
-        autoCapitalize="none"
-        autoComplete="current-password"
-        control={control}
-        label="Contraseña"
-        name="password"
-        placeholder="Ingresa tu contraseña"
-        secureTextEntry
-        textContentType="password"
-      />
-      {serverError ? <Feedback message={serverError} /> : null}
-      <PrimaryButton
-        disabled={isSubmitting}
-        label={isSubmitting ? "Ingresando…" : "Ingresar"}
-        onPress={() => void onSubmit()}
-      />
-      <SecondaryButton
-        label="Olvidé mi contraseña"
-        onPress={() => navigation.navigate("ForgotPassword")}
-      />
-      <Text style={{ color: "#4B5563", fontSize: 13, marginTop: 20 }}>
-        El registro público está deshabilitado. Solicita una cuenta a tu coordinador.
-      </Text>
+      <View style={styles.formOffset}>
+        <PageTitle
+          eyebrow="Acceso"
+          title="Entra a tu mesa"
+          description="Usa la cuenta de tu coordinador."
+        />
+        <FormField
+          autoCapitalize="none"
+          autoComplete="email"
+          control={control}
+          icon={Mail}
+          keyboardType="email-address"
+          label="Correo electrónico"
+          name="email"
+          placeholder="nombre@correo.com"
+          textContentType="emailAddress"
+        />
+        <FormField
+          autoCapitalize="none"
+          autoComplete="current-password"
+          control={control}
+          icon={Lock}
+          label="Contraseña"
+          name="password"
+          placeholder="Ingresa tu contraseña"
+          secureTextEntry
+          secureTextToggle
+          textContentType="password"
+        />
+        {serverError ? <Feedback message={serverError} /> : null}
+        <PrimaryButton
+          disabled={isSubmitting}
+          label={isSubmitting ? "Entrando…" : "Entrar"}
+          onPress={() => void onSubmit()}
+        />
+        <SecondaryButton
+          label="Recuperar mi contraseña"
+          onPress={() => navigation.navigate("ForgotPassword")}
+        />
+      </View>
     </AuthPage>
   );
 }
+
+const styles = StyleSheet.create({
+  formOffset: {
+    gap: spacing.lg,
+    marginTop: spacing.lg,
+  },
+});

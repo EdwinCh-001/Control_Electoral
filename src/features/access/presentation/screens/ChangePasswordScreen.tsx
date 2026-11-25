@@ -70,8 +70,13 @@ export function ChangePasswordScreen() {
   return (
     <AuthPage>
       <PageTitle
-        title="Crea una contraseña nueva"
-        description="Por seguridad, debes reemplazar la contraseña temporal antes de continuar."
+        eyebrow="Primer ingreso"
+        title="Crea tu contraseña"
+        description="Crea una contraseña nueva para continuar."
+      />
+      <Feedback
+        kind="info"
+        message="La contraseña temporal dejará de funcionar cuando guardes la nueva."
       />
       <FormField
         autoCapitalize="none"
@@ -81,6 +86,7 @@ export function ChangePasswordScreen() {
         name="password"
         placeholder="Ingresa una contraseña"
         secureTextEntry
+        secureTextToggle
         textContentType="newPassword"
       />
       <FormField
@@ -91,12 +97,13 @@ export function ChangePasswordScreen() {
         name="confirmPassword"
         placeholder="Escribe de nuevo la contraseña"
         secureTextEntry
+        secureTextToggle
         textContentType="newPassword"
       />
       {serverError ? <Feedback message={serverError} /> : null}
       <PrimaryButton
         disabled={isSubmitting}
-        label={isSubmitting ? "Actualizando…" : "Guardar contraseña"}
+        label={isSubmitting ? "Guardando…" : "Guardar y continuar"}
         onPress={() => void onSubmit()}
       />
       <SecondaryButton

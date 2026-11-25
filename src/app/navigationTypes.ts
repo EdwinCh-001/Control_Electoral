@@ -8,4 +8,7 @@ export type RootStackParamList = {
   ActaList: undefined;
   ActaEditor: { actaId: string };
   ActaHistory: { actaId: string };
+  ProvincialLocationReview: undefined;
+  ProvincialDashboard: undefined;
+  ProvincialActaDetail: { actaId: string };
 };

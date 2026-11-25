@@ -1,29 +1,29 @@
-# ADR-01: Backend, autenticacion y seguridad de datos
-
-**Estado:** Aceptado
+# ADR-01: Plataforma Backend, Autenticación y Seguridad de Datos
 
 ## Requerimientos relacionados
 
-RF-01, RF-02, RF-03, RF-04, RF-09, RF-10, RF-12, RNF-02, S-05.
+RF-01, RF-02, RF-03, RF-04, RF-09, RF-10, RNF-02, S-05
 
 ## Contexto
 
-Se requiere una plataforma backend que integre persistencia relacional, autenticacion, almacenamiento de archivos y actualizaciones en tiempo real.
+La organización necesita gestión estricta de usuarios sin auto registro, verificación de correo electrónico, cambio obligatorio de clave inicial, recuperación autónoma de contraseña y aislamiento estricto de datos por rol, almacenamiento de fotografías de actas y actualización en tiempo real de Exit Poll.
 
-## Stack y decision
+## Alternativas consideradas
 
-- Supabase: PostgreSQL, Auth, Storage, Realtime y Edge Functions.
-- `expo-secure-store` para proteger la sesion local.
-- Supabase Auth utiliza el SMTP configurado para confirmacion y recuperacion de correo; no se fija un proveedor SMTP.
+| Alternativa | Propuesta por | Ventajas | Desventajas o limitaciones |
+|---|---|---|---|
+| Supabase (PostgreSQL, Auth, Storage, RealTime)Expo-secure-storage | Bryan Rodrigo Salvador Martínez | Bases de datos relacionales real para jerarquías, políticas de seguridad nativas para aislar datos por rol, verificación de correo y recuperación de clave integradas, realTime para datos de Exit Poll. Expo-secure-storage para la persistencia del JWT. | Requiere un diseño cuidadoso para políticas RLS y funciones para la creación de usuarios sin cerrar la sesión del coordinador. |
+| Appwrite | Edwin Chusin | De código abierto con autenticación, base de datos, almacenamiento y es auto hospedable, todo lo mencionado en un solo producto, además acelera el desarrollo de aplicaciones web y móviles | Los permisos se asignan documento por documento al momento de crearlo de modo que la jerarquía depende del código y no de la base. Se debe de pagar para funcionalidades de PostgreSQL. Menor ecosistema, documentación y comunidad |
+| Supabase | Emily Pazmiño | Acceso a una base de datos relacional, permite la verificación por correo, tiene Auth integrado | Requiere configurar manualmente las políticas RLS |
 
-## Ventajas y desventajas
+## Decisión
 
-- Integra base de datos relacional, autenticacion, Storage y Realtime.
-- Supabase ofrece RLS para aislar datos.
-- RLS y las funciones de backend requieren configuracion cuidadosa.
+SUPABASE CON FUNCIONALIDADES NATIVAS DE LA MISMA
 
 ## Consecuencias
 
-- Se deben configurar y probar las politicas RLS para tablas y Storage.
-- SMTP debe configurarse para evitar las limitaciones de envio del servicio predeterminado.
-- Las credenciales privilegiadas permanecen fuera del cliente movil.
+Ganamos el tiempo de desarrollo debido a un correcto manejo de este sistema y facilidad de integrar el SMTP de correo, junto con las funcionalidades de almacenamiento y API Rest.
+
+Si no se utiliza un SMTP Propio no se puede enviar demasiados correos, impidiendo el correcto funcionamiento de la aplicación.
+
+Configurar las Políticas RLS para las tablas, storage y demás funciones.

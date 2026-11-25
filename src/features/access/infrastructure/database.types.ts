@@ -1,5 +1,6 @@
 import type { ActaStatus, ElectoralOffice } from "../../actas/domain/acta";
 import type { AppRole } from "../domain/auth";
+import type { PollingStationSex } from "../../../shared/domain/pollingStation";
 
 type Empty = { [_ in never]: never };
 export type Json =
@@ -65,6 +66,7 @@ export type CantonRow = {
 export type PollingStationRow = {
   id: string;
   precinct_id: string;
+  sex: PollingStationSex | null;
   station_number: number;
   created_at: string;
 };
@@ -89,6 +91,7 @@ export type CandidateRow = {
 export type OrganizationRow = {
   id: string;
   name: string;
+  list_number: number | null;
   created_at: string;
 };
 
@@ -176,7 +179,10 @@ export interface Database {
       >;
       polling_stations: Table<
         PollingStationRow,
-        Omit<PollingStationRow, "created_at"> & { created_at?: string },
+        Omit<PollingStationRow, "created_at" | "sex"> & {
+          created_at?: string;
+          sex?: PollingStationSex | null;
+        },
         Partial<PollingStationRow>
       >;
       observer_assignments: Table<
@@ -190,9 +196,10 @@ export interface Database {
       >;
       political_organizations: Table<
         OrganizationRow,
-        Omit<OrganizationRow, "id" | "created_at"> & {
+        Omit<OrganizationRow, "id" | "created_at" | "list_number"> & {
           id?: string;
           created_at?: string;
+          list_number?: number | null;
         },
         Partial<OrganizationRow>
       >;
@@ -285,6 +292,7 @@ export interface Database {
       app_role: AppRole;
       electoral_office: ElectoralOffice;
       acta_status: ActaStatus;
+      polling_station_sex: PollingStationSex;
     };
     CompositeTypes: Empty;
   };

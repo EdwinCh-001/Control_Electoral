@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   AppState,
   Image,
+  Modal,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -14,19 +15,30 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useForm, useWatch, type Path } from "react-hook-form";
 import { z } from "zod";
+import { History } from "lucide-react-native";
 
 import type { RootStackParamList } from "../../../app/navigationTypes";
 import { useAppSelector } from "../../../app/store";
+import type { NoticeKind } from "../../../shared/presentation/messages";
+import { colors, fonts, radii, spacing } from "../../../shared/presentation/theme";
 import {
   AuthPage,
   Feedback,
   FormField,
+  LoadingBlock,
   PageTitle,
   PrimaryButton,
   SecondaryButton,
+  SectionTitle,
+  SegmentedTabs,
+  StatusChip,
+  WorkflowStrip,
+  type StatusTone,
 } from "../../access/presentation/components/AuthUi";
 import { actaRepository } from "../data";
-import type { ActaDraft } from "../domain/acta";
+import type { ActaDraft, Location as ActaCoordinates } from "../domain/acta";
+import { validateActaTally } from "../domain/actaRules";
+import { ActaLocationCard } from "./ActaLocationCard";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ActaEditor">;
 
@@ -72,13 +84,37 @@ function applyFormValues(draft: ActaDraft, values: FormValues): ActaDraft {
 }
 
 const statusMessages: Record<ActaDraft["status"], string> = {
-  draft: "Toma una fotografía con la cámara para iniciar el acta.",
-  pending: "La fotografía está guardada. El OCR se ejecutará al tener conexión; también puedes ingresar los datos manualmente.",
-  processing_ocr: "Leyendo la fotografía. Puedes esperar el resultado o continuar con la revisión manual.",
-  ready: "Revisa la propuesta o los datos ingresados. El acta no se envía hasta que autorices.",
-  sending: "Envío autorizado y guardado. Se sincronizará cuando haya conexión; el servidor todavía no lo confirma.",
-  sent: "El servidor confirmó el envío del acta.",
-  failed: "Ocurrió un problema. Revisa el detalle y reintenta o continúa manualmente.",
+  draft: "Primero toma una foto clara del acta. Después podrás revisar los números.",
+  pending:
+    "La foto está guardada. Cuando haya conexión, intentaremos leerla; también puedes escribir los números.",
+  processing_ocr:
+    "Estamos leyendo la foto. Puedes esperar o escribir los datos manualmente.",
+  ready:
+    "Revisa que cada número coincida con la foto. Nada se envía sin tu autorización.",
+  sending:
+    "Estamos subiendo el acta. Si no hay conexión, se enviará sola después.",
+  sent: "Acta subida correctamente.",
+  failed:
+    "No pudimos completar un paso. El acta sigue guardada; puedes reintentar o escribir los datos.",
+};
+
+const statusPresentation: Record<
+  ActaDraft["status"],
+  { label: string; tone: StatusTone }
+> = {
+  draft: { label: "Falta foto", tone: "muted" },
+  pending: { label: "Foto guardada", tone: "warning" },
+  processing_ocr: { label: "Leyendo foto", tone: "warning" },
+  ready: { label: "Lista para revisar", tone: "action" },
+  sending: { label: "Subiendo acta", tone: "warning" },
+  sent: { label: "Acta subida", tone: "success" },
+  failed: { label: "Requiere atención", tone: "danger" },
+};
+
+type NoticeState = {
+  kind: NoticeKind;
+  message: string;
+  technicalDetails?: string;
 };
 
 export function ActaEditorScreen({ navigation, route }: Props) {
@@ -92,12 +128,21 @@ export function ActaEditorScreen({ navigation, route }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [editorTab, setEditorTab] = useState<"votes" | "evidence">("votes");
+  const [showSubmitConfirmation, setShowSubmitConfirmation] = useState(false);
+  const [submissionValidationError, setSubmissionValidationError] = useState<
+    string | null
+  >(null);
   const [sharpnessScore, setSharpnessScore] = useState<number | null>(null);
   const [sharpnessThreshold, setSharpnessThreshold] = useState<number | null>(
     null,
   );
+  const [locationReferenceState, setLocationReferenceState] = useState<{
+    precinctId: string;
+    location: ActaCoordinates | null;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<NoticeState | null>(null);
   const {
     control,
     getValues,
@@ -138,7 +183,7 @@ export function ActaEditorScreen({ navigation, route }: Props) {
       setError(
         queueError instanceof Error
           ? queueError.message
-          : "No se pudo iniciar el procesamiento OCR.",
+          : "No pudimos empezar a leer la foto. Puedes escribir los datos manualmente.",
       );
     }
   }, [session]);
@@ -237,6 +282,29 @@ export function ActaEditorScreen({ navigation, route }: Props) {
     };
   }, [actaId, processQueue, reset, session, setCurrentDraft]);
 
+  useEffect(() => {
+    const precinctId = draft?.precinctId;
+    if (!precinctId || !session) {
+      return;
+    }
+    let active = true;
+    void actaRepository
+      .getLocationReference(precinctId)
+      .then((location) => {
+        if (active) {
+          setLocationReferenceState({ precinctId, location });
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setLocationReferenceState({ precinctId, location: null });
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [draft?.precinctId, session]);
+
   const canEditResults =
     draft?.status === "ready" ||
     (draft?.status === "failed" && draft.failureStage === "submission");
@@ -288,8 +356,26 @@ export function ActaEditorScreen({ navigation, route }: Props) {
           "Se necesita permiso de ubicación para asociar el lugar de captura al acta.",
         );
       }
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+      let locationTimeout: ReturnType<typeof setTimeout> | undefined;
+      const location = await Promise.race([
+        Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        }),
+        new Promise<never>((_resolve, reject) => {
+          locationTimeout = setTimeout(
+            () =>
+              reject(
+                new Error(
+                  "No pudimos obtener la ubicación después de 20 segundos. Verifica el GPS y vuelve a intentarlo.",
+                ),
+              ),
+            20_000,
+          );
+        }),
+      ]).finally(() => {
+        if (locationTimeout !== undefined) {
+          clearTimeout(locationTimeout);
+        }
       });
       const picture = await cameraRef.current?.takePictureAsync({
         quality: 0.9,
@@ -316,22 +402,41 @@ export function ActaEditorScreen({ navigation, route }: Props) {
       if (!result.draft) {
         setNotice(
           result.threshold === null
-            ? "No se aceptó la foto: falta calibrar el umbral real de nitidez. Configura EXPO_PUBLIC_IMAGE_SHARPNESS_THRESHOLD después de medir imágenes de prueba."
-            : "La fotografía no alcanzó el nivel de nitidez requerido. Tómala nuevamente.",
+            ? {
+                kind: "warning",
+                message:
+                  "No pudimos revisar la nitidez de la foto. Toma otra con más luz y sin mover el teléfono.",
+                technicalDetails:
+                  "Falta configurar EXPO_PUBLIC_IMAGE_SHARPNESS_THRESHOLD. Mide imágenes de prueba antes de exigir este control.",
+              }
+            : {
+                kind: "warning",
+                message:
+                  "La foto no se ve clara. Toma otra con más luz y sin mover el teléfono.",
+              },
         );
         return;
       }
       setCurrentDraft(result.draft);
       setShowCamera(false);
       if (result.warningMeters !== null) {
-        setNotice(
-          `Aviso: la captura está a ${Math.round(result.warningMeters)} m de la primera ubicación registrada para este recinto.`,
-        );
+        setNotice({
+          kind: "warning",
+          message: `La foto se tomó a ${Math.round(result.warningMeters)} m del punto esperado. Queda como aviso; puedes continuar.`,
+        });
+      } else if (result.cleanupWarning) {
+        setNotice({
+          kind: "warning",
+          message:
+            "La foto se guardó, pero hubo un aviso al ordenar los archivos temporales. No afecta el acta.",
+          technicalDetails: result.cleanupWarning,
+        });
       } else {
-        setNotice(
-          result.cleanupWarning ??
-            "Fotografía guardada en el dispositivo. Los resultados aún requieren revisión.",
-        );
+        setNotice({
+          kind: "success",
+          message:
+            "Foto guardada en este dispositivo. Revisa que los números se lean bien.",
+        });
       }
       void processQueue();
     } catch (captureError) {
@@ -357,7 +462,11 @@ export function ActaEditorScreen({ navigation, route }: Props) {
       const updated = applyFormValues(ready, values);
       await actaRepository.saveDraft(updated);
       setCurrentDraft(updated);
-      setNotice("Resultados guardados localmente. Revisa el cuadre antes de enviar.");
+      setNotice({
+        kind: "success",
+        message:
+          "Resultados guardados en este dispositivo. Revisa que los números coincidan antes de enviar.",
+      });
     } catch (manualError) {
       setError(
         manualError instanceof Error
@@ -376,14 +485,19 @@ export function ActaEditorScreen({ navigation, route }: Props) {
     }
     setIsBusy(true);
     setError(null);
-    setNotice("Se intentará procesar la fotografía. Puedes continuar manualmente.");
+    setNotice({
+      kind: "info",
+      message:
+        "Vamos a intentar leer la foto otra vez. También puedes escribir los datos manualmente.",
+    });
     try {
       await actaRepository.retryOCR(current);
+      void processQueue();
     } catch (ocrError) {
       setError(
         ocrError instanceof Error
           ? ocrError.message
-          : "No se pudo reintentar el OCR.",
+          : "No pudimos intentar leer la foto otra vez.",
       );
     } finally {
       setIsBusy(false);
@@ -409,8 +523,15 @@ export function ActaEditorScreen({ navigation, route }: Props) {
       setCurrentDraft(submitted);
       setNotice(
         submitted.status === "sent"
-          ? "El servidor confirmó el envío del acta."
-          : "Autorización guardada. El envío se completará al recuperar la conexión.",
+          ? {
+              kind: "success",
+              message: "Acta subida correctamente.",
+            }
+          : {
+              kind: "info",
+              message:
+                "El acta quedó lista para subir. Se enviará sola cuando vuelva la conexión.",
+            },
       );
     } catch (submitError) {
       setError(
@@ -443,6 +564,22 @@ export function ActaEditorScreen({ navigation, route }: Props) {
     }
   };
 
+  const requestSubmit = (values: FormValues) => {
+    setSubmissionValidationError(null);
+    const current = draftRef.current;
+    if (!current) {
+      return;
+    }
+    const tallyErrors = validateActaTally(applyFormValues(current, values));
+    if (tallyErrors.length > 0) {
+      setNotice(null);
+      setSubmissionValidationError(tallyErrors.join(" "));
+      return;
+    }
+    setError(null);
+    setShowSubmitConfirmation(true);
+  };
+
   const enterReview = async () => {
     if (!draftRef.current) {
       return;
@@ -472,15 +609,20 @@ export function ActaEditorScreen({ navigation, route }: Props) {
       keyboardType="number-pad"
       label={label}
       name={name}
-      placeholder="0"
+      numeric
+      placeholder="Sin dato"
     />
   );
 
   if (isLoading) {
     return (
       <AuthPage>
-        <ActivityIndicator accessibilityLabel="Cargando borrador" />
-        <Text style={styles.muted}>Cargando borrador…</Text>
+        <PageTitle
+          eyebrow="Acta"
+          title="Abriendo el acta"
+          description="Estamos recuperando la foto y los datos guardados en este dispositivo."
+        />
+        <LoadingBlock message="Cargando el acta…" />
       </AuthPage>
     );
   }
@@ -488,9 +630,16 @@ export function ActaEditorScreen({ navigation, route }: Props) {
   if (!draft) {
     return (
       <AuthPage>
-        <PageTitle title="Acta no disponible" description="No se pudo abrir el borrador local." />
+        <PageTitle
+          eyebrow="Acta"
+          title="No encontramos esta acta"
+          description="El borrador no está disponible en este dispositivo. Vuelve a la lista y ábrela de nuevo."
+        />
         {error ? <Feedback message={error} /> : null}
-        <SecondaryButton label="Volver" onPress={() => navigation.goBack()} />
+        <SecondaryButton
+          label="Volver a mis actas"
+          onPress={() => navigation.goBack()}
+        />
       </AuthPage>
     );
   }
@@ -499,179 +648,409 @@ export function ActaEditorScreen({ navigation, route }: Props) {
     draft.status === "draft" ||
     draft.status === "ready" ||
     (draft.status === "failed" && draft.failureStage === "submission");
+  const status = statusPresentation[draft.status];
+  const statusKind: NoticeKind =
+    draft.status === "failed"
+      ? "error"
+      : draft.status === "sent"
+        ? "success"
+        : "info";
+  const workflowSteps: {
+    label: string;
+    state: "done" | "current" | "todo" | "error";
+  }[] = [
+    {
+      label: "Foto",
+      state: draft.photoUri ? "done" : "current",
+    },
+    {
+      label: "Revisión",
+      state: canEditResults
+        ? "current"
+        : draft.status === "sent" ||
+            draft.status === "sending" ||
+            (draft.status === "failed" &&
+              draft.failureStage === "submission")
+          ? "done"
+          : draft.status === "failed"
+            ? "error"
+            : "todo",
+    },
+    {
+      label: "Envío",
+      state:
+        draft.status === "sent"
+          ? "done"
+          : draft.status === "sending"
+            ? "current"
+            : draft.status === "failed" &&
+                draft.failureStage === "submission"
+              ? "error"
+              : "todo",
+    },
+  ];
 
   return (
-    <AuthPage>
+    <AuthPage
+      headerRight={
+        <Pressable
+          accessibilityLabel="Ver historial de cambios"
+          accessibilityRole="button"
+          onPress={() => navigation.navigate("ActaHistory", { actaId })}
+          style={styles.historyButton}
+        >
+          <History color={colors.primaryDark} size={18} strokeWidth={2.2} />
+        </Pressable>
+      }
+      onBack={() => navigation.goBack()}
+      overlay={
+        <Modal
+          animationType="fade"
+          onRequestClose={() => setShowSubmitConfirmation(false)}
+          transparent
+          visible={showSubmitConfirmation}
+        >
+          <View style={styles.confirmationBackdrop}>
+            <View style={styles.confirmationCard}>
+              <Feedback
+                kind="warning"
+                title={
+                  draft.correctionMode
+                    ? "Confirmar corrección"
+                    : "Confirmar envío"
+                }
+                message="Verifica los datos del acta. Al confirmar, quedará autorizada para su envío."
+              />
+              <View style={styles.confirmationSummary}>
+                <View style={styles.confirmationRow}>
+                  <Text style={styles.confirmationLabel}>Recinto</Text>
+                  <Text style={styles.confirmationValue}>
+                    {draft.precinctName}
+                  </Text>
+                </View>
+                <View style={styles.confirmationRow}>
+                  <Text style={styles.confirmationLabel}>Mesa</Text>
+                  <Text style={styles.confirmationValue}>
+                    {draft.stationNumber}
+                  </Text>
+                </View>
+                <View style={styles.confirmationRow}>
+                  <Text style={styles.confirmationLabel}>Acta</Text>
+                  <Text style={styles.confirmationValue}>
+                    {draft.office === "mayor" ? "Alcaldía" : "Prefectura"}
+                  </Text>
+                </View>
+              </View>
+              <PrimaryButton
+                disabled={isBusy}
+                label={
+                  draft.correctionMode
+                    ? "Sí, enviar corrección"
+                    : "Sí, enviar acta"
+                }
+                onPress={() => {
+                  setShowSubmitConfirmation(false);
+                  void handleSubmit(submitActa)();
+                }}
+              />
+              <SecondaryButton
+                disabled={isBusy}
+                label="Seguir revisando"
+                onPress={() => setShowSubmitConfirmation(false)}
+              />
+            </View>
+          </View>
+        </Modal>
+      }
+    >
       <PageTitle
+        eyebrow={
+          draft.correctionMode ? "Corrección de acta" : "Acta en tu dispositivo"
+        }
         title={`${draft.precinctName} · Mesa ${draft.stationNumber}`}
-        description={`Acta para ${draft.office === "mayor" ? "Alcaldía" : "Prefectura"}${draft.correctionMode ? " · Corrección" : ""}.`}
+        description={`${draft.office === "mayor" ? "Alcaldía" : "Prefectura"}${draft.stationSex ? ` · ${draft.stationSex === "female" ? "Mujeres" : "Hombres"}` : ""}${draft.correctionMode ? " · Corrección" : ""}.`}
       />
-      <Feedback kind="info" message={statusMessages[draft.status]} />
+
+      <View style={styles.statusRow}>
+        <StatusChip label={status.label} tone={status.tone} />
+        <Text style={styles.statusMeta}>
+          {draft.correctionMode ? "Corrección" : "Captura"} ·{" "}
+          {draft.office === "mayor" ? "Alcaldía" : "Prefectura"}
+        </Text>
+      </View>
+      <WorkflowStrip steps={workflowSteps} />
+      <Feedback kind={statusKind} message={statusMessages[draft.status]} />
       {error ? <Feedback message={error} /> : null}
-      {notice ? <Feedback kind="success" message={notice} /> : null}
-      {draft.locationWarningMeters !== null ? (
+      {notice ? (
         <Feedback
-          kind="info"
-          message={`La ubicación está a ${Math.round(draft.locationWarningMeters)} m de la primera foto registrada en el recinto. El aviso no bloquea el envío.`}
+          kind={notice.kind}
+          message={notice.message}
+          technicalDetails={notice.technicalDetails}
         />
       ) : null}
       {sharpnessScore !== null ? (
         <Feedback
           kind="info"
-          message={`Nitidez calculada: ${sharpnessScore.toFixed(2)}${sharpnessThreshold === null ? " · Umbral sin calibrar" : ` · Umbral ${sharpnessThreshold}`}.`}
+          title="Calidad de la foto"
+          message="La foto está guardada. Si no se lee bien, puedes tomarla de nuevo."
+          technicalDetails={`Nitidez calculada: ${sharpnessScore.toFixed(2)}${sharpnessThreshold === null ? " · Umbral sin calibrar" : ` · Umbral ${sharpnessThreshold}`}.`}
         />
       ) : null}
 
-      {draft.photoUri ? (
-        <View style={styles.photoCard}>
-          <Image
-            accessibilityLabel="Fotografía del acta guardada en este dispositivo"
-            resizeMode="contain"
-            source={{ uri: draft.photoUri }}
-            style={styles.photo}
-          />
-          <Text style={styles.photoCaption}>Evidencia guardada localmente</Text>
-        </View>
+      {canEditResults && draft.photoUri ? (
+        <SegmentedTabs
+          onChange={setEditorTab}
+          options={[
+            { key: "votes", label: "Votos" },
+            { key: "evidence", label: "Foto y mapa" },
+          ]}
+          value={editorTab}
+        />
       ) : null}
 
-      {showCamera && canCapture ? (
-        <View style={styles.cameraCard}>
-          {cameraPermission?.granted ? (
-            <CameraView
-              ref={cameraRef}
-              facing="back"
-              mode="picture"
-              style={styles.camera}
-            />
-          ) : (
-            <View style={styles.permission}>
-              <Text style={styles.muted}>
-                La cámara requiere permiso para tomar la fotografía.
-              </Text>
-              <SecondaryButton
-                label="Permitir cámara"
-                onPress={() => void requestCameraPermission()}
+      {(!canEditResults || editorTab === "evidence" || !draft.photoUri) ? (
+        <>
+          {draft.photoUri ? (
+            <View style={styles.evidenceSection}>
+              <View style={styles.photoHeader}>
+                <SectionTitle>Foto del acta</SectionTitle>
+                <StatusChip label="Guardada" tone="success" />
+              </View>
+              <View style={styles.photoFrame}>
+                <Image
+                  accessibilityLabel="Fotografía del acta guardada en este dispositivo"
+                  resizeMode="contain"
+                  source={{ uri: draft.photoUri }}
+                  style={styles.photo}
+                />
+              </View>
+              <ActaLocationCard
+                capturedAt={draft.capturedAtDevice}
+                location={
+                  draft.latitude !== null && draft.longitude !== null
+                    ? {
+                        latitude: draft.latitude,
+                        longitude: draft.longitude,
+                      }
+                    : null
+                }
+                warningMeters={draft.locationWarningMeters}
+                reference={
+                  locationReferenceState?.precinctId === draft.precinctId
+                    ? locationReferenceState.location
+                    : null
+                }
               />
             </View>
-          )}
-          <PrimaryButton
-            disabled={isBusy || !cameraPermission?.granted}
-            label={isBusy ? "Capturando…" : "Tomar fotografía"}
-            onPress={() => void takePhoto()}
-          />
-          <SecondaryButton
-            disabled={isBusy}
-            label="Cancelar cámara"
-            onPress={() => setShowCamera(false)}
-          />
-        </View>
-      ) : null}
-      {!showCamera && canCapture ? (
-        <SecondaryButton
-          disabled={isBusy}
-          label={draft.photoUri ? "Tomar otra fotografía" : "Abrir cámara"}
-          onPress={() => setShowCamera(true)}
-        />
-      ) : null}
+          ) : null}
 
-      {draft.photoUri && !canEditResults ? (
-        <View style={styles.actions}>
-          {draft.status === "pending" ||
-          (draft.status === "failed" && draft.failureStage === "ocr") ? (
+          {showCamera && canCapture ? (
+            <View style={styles.cameraSection}>
+              <SectionTitle>Tomar foto</SectionTitle>
+              <Text style={styles.muted}>
+                Apoya el teléfono y procura que se lean todos los números. Evita
+                sombras y movimientos.
+              </Text>
+              {cameraPermission?.granted ? (
+                <View style={styles.cameraFrame}>
+                  <CameraView
+                    ref={cameraRef}
+                    facing="back"
+                    mode="picture"
+                    style={styles.camera}
+                  />
+                </View>
+              ) : (
+                <View style={styles.permission}>
+                  <Text style={styles.muted}>
+                    La cámara necesita permiso para fotografiar el acta.
+                  </Text>
+                  <SecondaryButton
+                    label="Permitir cámara"
+                    onPress={() => void requestCameraPermission()}
+                  />
+                </View>
+              )}
+              <PrimaryButton
+                disabled={isBusy || !cameraPermission?.granted}
+                label={isBusy ? "Tomando foto…" : "Tomar foto"}
+                onPress={() => void takePhoto()}
+              />
+              <SecondaryButton
+                disabled={isBusy}
+                label="Cerrar cámara"
+                onPress={() => setShowCamera(false)}
+              />
+            </View>
+          ) : null}
+
+          {!showCamera && canCapture ? (
             <SecondaryButton
               disabled={isBusy}
-              label={isBusy ? "Procesando…" : "Reintentar OCR"}
-              onPress={() => void retryOCR()}
+              label={draft.photoUri ? "Tomar otra foto" : "Abrir cámara"}
+              onPress={() => setShowCamera(true)}
             />
           ) : null}
-          {draft.status !== "processing_ocr" &&
-          draft.status !== "sent" &&
-          draft.status !== "sending" ? (
-            <PrimaryButton
-              disabled={isBusy}
-              label="Ingresar o revisar resultados manualmente"
-              onPress={() => void enterReview()}
-            />
+
+          {draft.photoUri && !canEditResults ? (
+            <View style={styles.actions}>
+              {draft.status === "pending" ||
+              (draft.status === "failed" && draft.failureStage === "ocr") ? (
+                <SecondaryButton
+                  disabled={isBusy}
+                  label={isBusy ? "Intentando…" : "Intentar leer la foto otra vez"}
+                  onPress={() => void retryOCR()}
+                />
+              ) : null}
+              {draft.status !== "sent" &&
+              draft.status !== "sending" ? (
+                <PrimaryButton
+                  disabled={isBusy}
+                  label="Escribir resultados manualmente"
+                  onPress={() => void enterReview()}
+                />
+              ) : null}
+            </View>
           ) : null}
-        </View>
+        </>
       ) : null}
 
-      {canEditResults ? (
+      {canEditResults && (editorTab === "votes" || !draft.photoUri) ? (
         <View style={styles.form}>
-          <Text style={styles.sectionTitle}>Revisión de resultados</Text>
-          <Text style={styles.muted}>
-            Verifica cada valor con la fotografía. Los campos vacíos no se pueden enviar.
-          </Text>
+          <SectionTitle>Revisa los números del acta</SectionTitle>
+          <Feedback
+            kind="info"
+            message="Si un dato no se puede leer, deja el campo vacío: se marcará como Revisión, pero tendrás que verificarlo antes de enviar. Escribe 0 solo si el acta dice 0."
+          />
           {field("totalVoters", "Sufragantes")}
           {field("blankVotes", "Votos en blanco")}
           {field("nullVotes", "Votos nulos")}
           {draft.candidateVotes.map((candidate) => (
-            <View key={candidate.candidateId} style={styles.candidate}>
-              <Text style={styles.candidateName}>{candidate.candidateName}</Text>
-              <Text style={styles.organization}>{candidate.organizationName}</Text>
+            <View key={candidate.candidateId} style={styles.candidateRow}>
+              <View style={styles.candidateHead}>
+                <View style={styles.candidateCopy}>
+                  <Text style={styles.candidateName}>
+                    {candidate.candidateName}
+                  </Text>
+                  <Text style={styles.organization}>
+                    {candidate.organizationName}
+                  </Text>
+                </View>
+              </View>
               {field(
                 `candidateVotes.${candidate.candidateId}` as Path<FormValues>,
                 "Votos",
               )}
             </View>
           ))}
-          <PrimaryButton
+          <SecondaryButton
             disabled={isBusy}
-            label={isBusy ? "Guardando…" : "Guardar revisión manual"}
+            label={isBusy ? "Guardando…" : "Guardar y seguir revisando"}
             onPress={() => void handleSubmit(saveManualResults)()}
           />
+          {submissionValidationError ? (
+            <Feedback kind="error" message={submissionValidationError} />
+          ) : null}
           <PrimaryButton
             disabled={isBusy}
             label={
-              isBusy
-                ? "Enviando…"
-                : draft.correctionMode
-                  ? "Revisé y autorizo la corrección"
-                  : "Revisé y autorizo el envío"
+              draft.correctionMode
+                ? "Revisé y quiero enviar la corrección"
+                : "Revisé y quiero enviar el acta"
             }
-            onPress={() => void handleSubmit(submitActa)()}
+            onPress={() =>
+              void handleSubmit(requestSubmit, () => {
+                setSubmissionValidationError(
+                  "Revisa los campos marcados antes de continuar.",
+                );
+              })()
+            }
           />
         </View>
       ) : null}
-      <SecondaryButton
-        disabled={isBusy}
-        label="Ver historial de auditoría"
-        onPress={() => navigation.navigate("ActaHistory", { actaId })}
-      />
-      <SecondaryButton
-        disabled={isBusy}
-        label="Volver a actas"
-        onPress={() => navigation.goBack()}
-      />
     </AuthPage>
   );
 }
 
 const styles = StyleSheet.create({
+  historyButton: {
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    height: 38,
+    justifyContent: "center",
+    width: 38,
+  },
+  evidenceSection: {
+    gap: spacing.md,
+  },
+  cameraSection: {
+    gap: spacing.sm,
+  },
+  candidateRow: {
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    paddingTop: spacing.md,
+  },
   muted: {
-    color: "#4B5563",
+    color: colors.boneMuted,
+    fontFamily: fonts.body,
     fontSize: 14,
     lineHeight: 20,
   },
-  photoCard: {
+  statusRow: {
     alignItems: "center",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 10,
-    marginBottom: 16,
-    padding: 12,
+    flexDirection: "row",
+    gap: spacing.sm,
+    justifyContent: "space-between",
+  },
+  statusMeta: {
+    color: colors.boneMuted,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  photoCard: {
+    gap: spacing.md,
+  },
+  photoHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  cardEyebrow: {
+    color: colors.boneMuted,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    letterSpacing: 0.4,
+  },
+  photoFrame: {
+    backgroundColor: colors.navy,
+    borderColor: colors.navyBorder,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    overflow: "hidden",
   },
   photo: {
-    height: 260,
+    height: 290,
     width: "100%",
   },
   photoCaption: {
-    color: "#374151",
-    fontSize: 13,
-    marginTop: 8,
+    color: colors.boneMuted,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    lineHeight: 17,
   },
   cameraCard: {
-    gap: 10,
-    marginBottom: 12,
+    gap: spacing.sm,
+  },
+  cameraFrame: {
+    borderColor: colors.navyBorder,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    overflow: "hidden",
   },
   camera: {
     height: 340,
@@ -679,42 +1058,103 @@ const styles = StyleSheet.create({
   },
   permission: {
     alignItems: "center",
-    backgroundColor: "#F3F4F6",
-    gap: 12,
-    minHeight: 180,
+    backgroundColor: colors.navy,
+    borderColor: colors.navyBorder,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    gap: spacing.md,
     justifyContent: "center",
-    padding: 16,
+    minHeight: 180,
+    padding: spacing.lg,
   },
   actions: {
-    gap: 6,
+    gap: spacing.xs,
+    marginTop: spacing.sm,
   },
   form: {
-    borderTopColor: "#D1D5DB",
-    borderTopWidth: 1,
-    gap: 8,
-    marginTop: 20,
-    paddingTop: 16,
-  },
-  sectionTitle: {
-    color: "#111827",
-    fontSize: 19,
-    fontWeight: "700",
+    gap: spacing.sm,
   },
   candidate: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 8,
-    marginTop: 8,
-    padding: 12,
+    backgroundColor: colors.navy,
+    borderColor: colors.navyBorder,
+    borderLeftColor: colors.red,
+    borderLeftWidth: 3,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    marginTop: spacing.xs,
+    padding: spacing.md,
+  },
+  candidateHead: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: spacing.sm,
+    justifyContent: "space-between",
+    marginBottom: spacing.xs,
+  },
+  candidateCopy: {
+    flex: 1,
+  },
+  candidateMark: {
+    backgroundColor: colors.red,
+    borderRadius: 3,
+    height: 7,
+    marginTop: 6,
+    width: 7,
   },
   candidateName: {
-    color: "#111827",
+    color: colors.white,
+    fontFamily: fonts.bodyBold,
     fontSize: 15,
-    fontWeight: "700",
+    lineHeight: 20,
   },
   organization: {
-    color: "#4B5563",
+    color: colors.boneMuted,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  confirmationBackdrop: {
+    alignItems: "center",
+    backgroundColor: "rgba(4, 12, 20, 0.78)",
+    flex: 1,
+    justifyContent: "center",
+    padding: spacing.lg,
+  },
+  confirmationCard: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    gap: spacing.md,
+    maxWidth: 480,
+    padding: spacing.lg,
+    width: "100%",
+  },
+  confirmationSummary: {
+    backgroundColor: colors.navy,
+    borderColor: colors.navyBorder,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    gap: spacing.xs,
+    padding: spacing.md,
+  },
+  confirmationRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
+    justifyContent: "space-between",
+  },
+  confirmationLabel: {
+    color: colors.boneMuted,
+    fontFamily: fonts.body,
+    fontSize: 12,
+  },
+  confirmationValue: {
+    color: colors.white,
+    flexShrink: 1,
+    fontFamily: fonts.bodyMedium,
     fontSize: 13,
-    marginBottom: 12,
-    marginTop: 3,
+    textAlign: "right",
   },
 });

@@ -1,0 +1,22 @@
+@import "tailwindcss";
+@import "uniwind";
+
+/* Paleta ADN-7 / Control Electoral: 30% blanco, 50% morado, 20% amarillo. */
+@theme {
+  --color-background: #ffffff;
+  --color-surface: #f7f5fa;
+  --color-border: #e2dceb;
+
+  --color-primary: #5b2384;
+  --color-primary-dark: #431763;
+  --color-primary-soft: #7a3fb0;
+
+  --color-accent: #e6e73a;
+  --color-accent-bright: #f2f02e;
+  --color-accent-deep: #9e8b00;
+
+  --color-ink: #431763;
+  --color-ink-muted: rgb(67 23 99 / 0.72);
+  --color-on-primary: #ffffff;
+  --color-on-primary-muted: rgb(255 255 255 / 0.86);
+}

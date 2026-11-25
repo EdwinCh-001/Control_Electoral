@@ -28,7 +28,7 @@ export function validateActaTally(draft: ActaDraft): string[] {
     !isNonnegativeInteger(nullVotes) ||
     candidateCounts.some((value) => !isNonnegativeInteger(value))
   ) {
-    errors.push("Completa todos los conteos con números enteros no negativos.");
+    errors.push("Completa todos los números del acta antes de enviar.");
     return errors;
   }
 

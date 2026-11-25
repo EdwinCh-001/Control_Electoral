@@ -1,8 +1,11 @@
 import { useMemo } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import {
+  createNavigationContainerRef,
+  DefaultTheme,
   NavigationContainer,
   type LinkingOptions,
+  type Theme,
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import * as Linking from "expo-linking";
@@ -20,6 +23,11 @@ import { TerritoryManagementScreen } from "../../../territory/presentation/Terri
 import { ActaEditorScreen } from "../../../actas/presentation/ActaEditorScreen";
 import { ActaHistoryScreen } from "../../../actas/presentation/ActaHistoryScreen";
 import { ActaListScreen } from "../../../actas/presentation/ActaListScreen";
+import { ProvincialLocationReviewScreen } from "../../../actas/presentation/ProvincialLocationReviewScreen";
+import { ProvincialActaDetailScreen } from "../../../monitoring/presentation/ProvincialActaDetailScreen";
+import { ProvincialDashboardScreen } from "../../../monitoring/presentation/ProvincialDashboardScreen";
+import { crashReporter } from "../../../../shared/infrastructure/CrashReporter";
+import { colors, fonts } from "../../../../shared/presentation/theme";
 import {
   AuthPage,
   Feedback,
@@ -29,6 +37,27 @@ import {
 } from "../components/AuthUi";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
+const navigationTheme: Theme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: colors.background,
+    border: colors.border,
+    card: colors.surface,
+    notification: colors.accentDeep,
+    primary: colors.primary,
+    text: colors.ink,
+  },
+};
+
+function trackActiveScreen(): void {
+  const name = navigationRef.getCurrentRoute()?.name;
+  if (name) {
+    crashReporter.setScreen(name);
+  }
+}
 
 const linking: LinkingOptions<RootStackParamList> = {
   prefixes: [Linking.createURL("/"), "examen1://"],
@@ -43,6 +72,9 @@ const linking: LinkingOptions<RootStackParamList> = {
       ActaList: "actas",
       ActaEditor: "actas/:actaId",
       ActaHistory: "actas/:actaId/history",
+      ProvincialLocationReview: "provincial-locations",
+      ProvincialDashboard: "provincial-dashboard",
+      ProvincialActaDetail: "provincial-actas/:actaId",
     },
   },
 };
@@ -59,8 +91,19 @@ export function RootNavigator() {
   if (phase === "loading") {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator accessibilityLabel="Cargando sesión" />
-        <Text style={styles.statusText}>Comprobando sesión…</Text>
+        <View style={styles.loadingBrand}>
+          <View style={styles.loadingMark}>
+            <Text style={styles.loadingMarkText}>7</Text>
+          </View>
+          <View>
+            <Text style={styles.loadingTitle}>Control Electoral</Text>
+            <Text style={styles.statusText}>Preparando tu jornada…</Text>
+          </View>
+        </View>
+        <ActivityIndicator
+          accessibilityLabel="Preparando tu jornada"
+          color={colors.red}
+        />
       </View>
     );
   }
@@ -69,12 +112,14 @@ export function RootNavigator() {
     return (
       <AuthPage>
         <PageTitle
-          title="Falta configurar Supabase"
-          description={error ?? "Completa la configuración de servicios."}
+          eyebrow="Configuración pendiente"
+          title="Falta conectar el servicio"
+          description="Falta la configuración de la app."
         />
         <Feedback
           kind="info"
-          message="Completa el proyecto Supabase y las variables públicas de .env antes de iniciar sesión."
+          message="Completa el proyecto de datos y las variables públicas de .env. Después vuelve a abrir la app."
+          technicalDetails={error ?? "No hay detalle técnico disponible."}
         />
       </AuthPage>
     );
@@ -84,11 +129,16 @@ export function RootNavigator() {
     return (
       <AuthPage>
         <PageTitle
-          title="No se pudo cargar tu perfil"
-          description={error ?? "La sesión no puede continuar."}
+          eyebrow="Sesión"
+          title="No pudimos cargar tu perfil"
+          description="Intenta de nuevo. Tu sesión sigue segura."
+        />
+        <Feedback
+          kind="error"
+          message={error ?? "No se pudo cargar el perfil."}
         />
         <PrimaryButton
-          label="Reintentar"
+          label="Intentar de nuevo"
           onPress={() => {
             dispatch(setLoading());
             void authRepository
@@ -127,7 +177,14 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer key={navigationKey} linking={linking}>
+    <NavigationContainer
+      key={navigationKey}
+      linking={linking}
+      ref={navigationRef}
+      theme={navigationTheme}
+      onReady={trackActiveScreen}
+      onStateChange={trackActiveScreen}
+    >
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {phase === "signed_out" || !session ? (
           <>
@@ -145,6 +202,22 @@ export function RootNavigator() {
         ) : (
           <>
             <Stack.Screen name="Home" component={HomeScreen} />
+            {session.profile.role === "provincial_coordinator" ? (
+              <>
+                <Stack.Screen
+                  name="ProvincialDashboard"
+                  component={ProvincialDashboardScreen}
+                />
+                <Stack.Screen
+                  name="ProvincialActaDetail"
+                  component={ProvincialActaDetailScreen}
+                />
+                <Stack.Screen
+                  name="ProvincialLocationReview"
+                  component={ProvincialLocationReviewScreen}
+                />
+              </>
+            ) : null}
             {session.profile.role !== "observer" ? (
               <Stack.Screen
                 name="ManageAccounts"
@@ -174,13 +247,52 @@ export function RootNavigator() {
 const styles = StyleSheet.create({
   loading: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.navy,
     flex: 1,
-    gap: 12,
+    gap: 20,
     justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  loadingRule: {
+    backgroundColor: colors.red,
+    height: 3,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+  },
+  loadingBrand: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+  },
+  loadingMark: {
+    alignItems: "center",
+    backgroundColor: colors.red,
+    borderRadius: 10,
+    height: 42,
+    justifyContent: "center",
+    width: 42,
+  },
+  loadingMarkText: {
+    color: colors.onPrimary,
+    fontFamily: fonts.display,
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+  },
+  loadingTitle: {
+    color: colors.white,
+    fontFamily: fonts.display,
+    fontSize: 22,
+    fontWeight: "700",
+    letterSpacing: -0.2,
   },
   statusText: {
-    color: "#374151",
-    fontSize: 15,
+    color: colors.boneMuted,
+    fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 19,
+    marginTop: 2,
   },
 });

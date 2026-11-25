@@ -17,6 +17,8 @@ Expo Go se usara para probar los recorridos habituales durante el desarrollo. La
 
 La aplicacion movil usa React Navigation y Supabase Auth. La recuperacion de contrasena se sirve desde la app web independiente en `web/`; sus variables y dominio de Vercel se configuran por separado.
 
+La web presenta la confirmacion de correo en `/email-verified` y el formulario de clave nueva en `/reset-password`; no solicita correos para iniciar una recuperacion. Las URLs de redireccion de Supabase estan documentadas en [`supabase/README.md`](./supabase/README.md#pasos-que-debes-hacer).
+
 Comandos de validacion previstos:
 
 ```bash

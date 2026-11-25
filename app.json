@@ -1,18 +1,18 @@
 {
   "expo": {
-    "name": "Examen1",
+    "name": "Control Electoral",
     "slug": "Examen1",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "examen1",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/images/icon.png"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#5B2384",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -27,23 +27,23 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#FFFFFF",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 96
         }
       ],
       "expo-secure-store",
       [
         "expo-camera",
         {
-          "cameraPermission": "Se necesita la cámara para fotografiar el acta electoral.",
+          "cameraPermission": "Permite la cámara para fotografiar el acta. La foto se guarda en este dispositivo.",
           "recordAudioAndroid": false
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Se necesita la ubicación para asociarla con la fotografía del acta."
+          "locationWhenInUsePermission": "Permite la ubicación para registrar dónde se tomó la foto del acta."
         }
       ],
       "expo-sqlite"

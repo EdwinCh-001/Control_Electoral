@@ -1,4 +1,5 @@
 import * as SQLite from "expo-sqlite";
+import { Platform } from "react-native";
 
 import type {
   ActaDraft,
@@ -17,6 +18,7 @@ interface DraftRow {
   observer_id: string;
   polling_station_id: string;
   station_number: number;
+  station_sex: AssignedStation["sex"];
   precinct_id: string;
   precinct_name: string;
   office: ElectoralOffice;
@@ -59,6 +61,7 @@ interface CachedActaSummaryRow {
   id: string;
   polling_station_id: string;
   station_number: number;
+  station_sex: AssignedStation["sex"];
   precinct_name: string;
   office: ElectoralOffice;
   status: ActaStatus;
@@ -79,6 +82,7 @@ async function openDatabase(): Promise<SQLite.SQLiteDatabase> {
             user_id TEXT NOT NULL,
             id TEXT NOT NULL,
             station_number INTEGER NOT NULL,
+            station_sex TEXT,
             precinct_id TEXT NOT NULL,
             precinct_name TEXT NOT NULL,
             PRIMARY KEY (user_id, id)
@@ -94,6 +98,7 @@ async function openDatabase(): Promise<SQLite.SQLiteDatabase> {
             id TEXT NOT NULL,
             polling_station_id TEXT NOT NULL,
             station_number INTEGER NOT NULL,
+            station_sex TEXT,
             precinct_name TEXT NOT NULL,
             office TEXT NOT NULL CHECK (office IN ('mayor', 'prefect')),
             status TEXT NOT NULL,
@@ -114,6 +119,7 @@ async function openDatabase(): Promise<SQLite.SQLiteDatabase> {
             observer_id TEXT NOT NULL,
             polling_station_id TEXT NOT NULL,
             station_number INTEGER NOT NULL,
+            station_sex TEXT,
             precinct_id TEXT NOT NULL,
             precinct_name TEXT NOT NULL,
             office TEXT NOT NULL CHECK (office IN ('mayor', 'prefect')),
@@ -147,6 +153,27 @@ async function openDatabase(): Promise<SQLite.SQLiteDatabase> {
         const draftColumns = await database.getAllAsync<{ name: string }>(
           "PRAGMA table_info(acta_drafts)",
         );
+        const stationColumns = await database.getAllAsync<{ name: string }>(
+          "PRAGMA table_info(assigned_stations_cache)",
+        );
+        const summaryColumns = await database.getAllAsync<{ name: string }>(
+          "PRAGMA table_info(remote_acta_summaries)",
+        );
+        if (!stationColumns.some((column) => column.name === "station_sex")) {
+          await database.execAsync(
+            "ALTER TABLE assigned_stations_cache ADD COLUMN station_sex TEXT",
+          );
+        }
+        if (!summaryColumns.some((column) => column.name === "station_sex")) {
+          await database.execAsync(
+            "ALTER TABLE remote_acta_summaries ADD COLUMN station_sex TEXT",
+          );
+        }
+        if (!draftColumns.some((column) => column.name === "station_sex")) {
+          await database.execAsync(
+            "ALTER TABLE acta_drafts ADD COLUMN station_sex TEXT",
+          );
+        }
         if (!draftColumns.some((column) => column.name === "correction_mode")) {
           await database.execAsync(
             "ALTER TABLE acta_drafts ADD COLUMN correction_mode INTEGER NOT NULL DEFAULT 0",
@@ -166,6 +193,17 @@ async function openDatabase(): Promise<SQLite.SQLiteDatabase> {
   return databasePromise;
 }
 
+async function withActaTransaction(
+  database: SQLite.SQLiteDatabase,
+  task: (transaction: SQLite.SQLiteDatabase) => Promise<void>,
+): Promise<void> {
+  if (Platform.OS === "web") {
+    await database.withTransactionAsync(() => task(database));
+    return;
+  }
+  await database.withExclusiveTransactionAsync(task);
+}
+
 export class SQLiteActaStore {
   async cacheReferenceData(
     userId: string,
@@ -174,27 +212,28 @@ export class SQLiteActaStore {
     locations: LocationRow[],
   ): Promise<void> {
     const database = await openDatabase();
-    await database.withTransactionAsync(async () => {
-      await database.runAsync(
+    await withActaTransaction(database, async (transaction) => {
+      await transaction.runAsync(
         "DELETE FROM assigned_stations_cache WHERE user_id = ?",
         userId,
       );
       for (const station of stations) {
-        await database.runAsync(
+        await transaction.runAsync(
           `INSERT INTO assigned_stations_cache
-            (user_id, id, station_number, precinct_id, precinct_name)
-           VALUES (?, ?, ?, ?, ?)`,
+            (user_id, id, station_number, station_sex, precinct_id, precinct_name)
+           VALUES (?, ?, ?, ?, ?, ?)`,
           userId,
           station.id,
           station.stationNumber,
+          station.sex,
           station.precinctId,
           station.precinctName,
         );
       }
 
-      await database.runAsync("DELETE FROM candidate_catalog");
+      await transaction.runAsync("DELETE FROM candidate_catalog");
       for (const candidate of candidates) {
-        await database.runAsync(
+        await transaction.runAsync(
           `INSERT INTO candidate_catalog (id, office, name, organization_name)
            VALUES (?, ?, ?, ?)
            ON CONFLICT(id) DO UPDATE SET
@@ -208,7 +247,7 @@ export class SQLiteActaStore {
         );
       }
       for (const location of locations) {
-        await this.cacheLocation(database, location);
+        await this.cacheLocation(transaction, location);
       }
     });
   }
@@ -217,7 +256,8 @@ export class SQLiteActaStore {
     const database = await openDatabase();
     const rows = await database.getAllAsync<StationRow>(
       `SELECT id, station_number AS stationNumber,
-              precinct_id AS precinctId, precinct_name AS precinctName
+              station_sex AS sex, precinct_id AS precinctId,
+              precinct_name AS precinctName
        FROM assigned_stations_cache
        WHERE user_id = ?
        ORDER BY precinct_name, station_number`,
@@ -226,6 +266,7 @@ export class SQLiteActaStore {
     return rows.map((row) => ({
       id: row.id,
       stationNumber: row.stationNumber,
+      sex: row.sex,
       precinctId: row.precinctId,
       precinctName: row.precinctName,
     }));
@@ -236,16 +277,21 @@ export class SQLiteActaStore {
     summaries: ActaSummary[],
   ): Promise<void> {
     const database = await openDatabase();
-    await database.withTransactionAsync(async () => {
+    await withActaTransaction(database, async (transaction) => {
+      await transaction.runAsync(
+        "DELETE FROM remote_acta_summaries WHERE user_id = ?",
+        userId,
+      );
       for (const summary of summaries) {
-        await database.runAsync(
+        await transaction.runAsync(
           `INSERT INTO remote_acta_summaries (
-            user_id, id, polling_station_id, station_number, precinct_name,
+            user_id, id, polling_station_id, station_number, station_sex, precinct_name,
             office, status, failure_stage, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(user_id, id) DO UPDATE SET
             polling_station_id = excluded.polling_station_id,
             station_number = excluded.station_number,
+            station_sex = excluded.station_sex,
             precinct_name = excluded.precinct_name,
             office = excluded.office,
             status = excluded.status,
@@ -255,6 +301,7 @@ export class SQLiteActaStore {
           summary.id,
           summary.pollingStationId,
           summary.stationNumber,
+          summary.stationSex,
           summary.precinctName,
           summary.office,
           summary.status,
@@ -284,6 +331,7 @@ export class SQLiteActaStore {
       id: row.id,
       pollingStationId: row.polling_station_id,
       stationNumber: row.station_number,
+      stationSex: row.station_sex,
       precinctName: row.precinct_name,
       office: row.office,
       status: row.status,
@@ -312,6 +360,7 @@ export class SQLiteActaStore {
           id: row.id,
           pollingStationId: row.polling_station_id,
           stationNumber: row.station_number,
+          stationSex: row.station_sex,
           precinctName: row.precinct_name,
           office: row.office,
           status: row.status,
@@ -399,20 +448,50 @@ export class SQLiteActaStore {
     }
 
     const database = await openDatabase();
-    await database.withTransactionAsync(async () => {
-      await database.runAsync(
+    await withActaTransaction(database, async (transaction) => {
+      const idCollision = await transaction.getFirstAsync<{
+        observer_id: string;
+        status: ActaStatus;
+      }>(
+        "SELECT observer_id, status FROM acta_drafts WHERE id = ?",
+        draft.id,
+      );
+      if (idCollision) {
+        const canReplaceSentDraft =
+          draft.correctionMode &&
+          draft.status === "ready" &&
+          idCollision.observer_id !== draft.ownerId &&
+          idCollision.status === "sent";
+        if (!canReplaceSentDraft) {
+          throw new Error(
+            "Ya existe un borrador local de esta acta. No se reemplazará porque no está confirmado como enviado.",
+          );
+        }
+        await transaction.runAsync(
+          "DELETE FROM acta_draft_votes WHERE acta_id = ?",
+          draft.id,
+        );
+        await transaction.runAsync(
+          `DELETE FROM acta_drafts
+           WHERE id = ? AND observer_id = ? AND status = 'sent'`,
+          draft.id,
+          idCollision.observer_id,
+        );
+      }
+      await transaction.runAsync(
         `INSERT INTO acta_drafts (
           id, observer_id, polling_station_id, station_number, precinct_id,
-          precinct_name, office, photo_uri, latitude, longitude,
+          station_sex, precinct_name, office, photo_uri, latitude, longitude,
           captured_at_device, device_modified_at, total_voters, blank_votes,
           null_votes, status, failure_stage, correction_mode,
           submission_authorized, location_warning_meters, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
         draft.id,
         draft.ownerId,
         draft.pollingStationId,
         draft.stationNumber,
         draft.precinctId,
+        draft.stationSex,
         draft.precinctName,
         draft.office,
         draft.photoUri,
@@ -431,7 +510,7 @@ export class SQLiteActaStore {
         draft.updatedAt,
       );
       for (const vote of draft.candidateVotes) {
-        await database.runAsync(
+        await transaction.runAsync(
           `INSERT OR IGNORE INTO acta_draft_votes (
             acta_id, candidate_id, candidate_name, organization_name, votes
           ) VALUES (?, ?, ?, ?, ?)`,
@@ -467,6 +546,15 @@ export class SQLiteActaStore {
     return this.mapDraft(database, row);
   }
 
+  async findDraftById(id: string): Promise<ActaDraft | null> {
+    const database = await openDatabase();
+    const row = await database.getFirstAsync<DraftRow>(
+      "SELECT * FROM acta_drafts WHERE id = ?",
+      id,
+    );
+    return row ? this.mapDraft(database, row) : null;
+  }
+
   async findDraftForStation(
     ownerId: string,
     stationId: string,
@@ -500,8 +588,8 @@ export class SQLiteActaStore {
 
   async saveDraft(draft: ActaDraft): Promise<void> {
     const database = await openDatabase();
-    await database.withTransactionAsync(async () => {
-      await database.runAsync(
+    await withActaTransaction(database, async (transaction) => {
+      await transaction.runAsync(
         `UPDATE acta_drafts SET
           photo_uri = ?, latitude = ?, longitude = ?, captured_at_device = ?,
           device_modified_at = ?, total_voters = ?, blank_votes = ?,
@@ -527,7 +615,7 @@ export class SQLiteActaStore {
         draft.ownerId,
       );
       for (const vote of draft.candidateVotes) {
-        await database.runAsync(
+        await transaction.runAsync(
           `INSERT INTO acta_draft_votes (
             acta_id, candidate_id, candidate_name, organization_name, votes
           ) VALUES (?, ?, ?, ?, ?)
@@ -588,6 +676,7 @@ export class SQLiteActaStore {
       ownerId: row.observer_id,
       pollingStationId: row.polling_station_id,
       stationNumber: row.station_number,
+      stationSex: row.station_sex,
       precinctId: row.precinct_id,
       precinctName: row.precinct_name,
       office: row.office,

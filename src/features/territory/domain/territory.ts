@@ -1,4 +1,5 @@
 import type { AppRole } from "../../access/domain/auth";
+import type { PollingStationSex } from "../../../shared/domain/pollingStation";
 
 export interface TerritoryPerson {
   id: string;
@@ -22,6 +23,7 @@ export interface ManagedPrecinct {
 export interface ManagedStation {
   id: string;
   stationNumber: number;
+  sex: PollingStationSex | null;
   precinctName: string;
   observer: TerritoryPerson | null;
 }

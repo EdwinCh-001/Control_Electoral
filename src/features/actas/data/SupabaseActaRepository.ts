@@ -3,6 +3,10 @@ import * as FileSystem from "expo-file-system/legacy";
 import NetInfo from "@react-native-community/netinfo";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import {
+  noopCrashReporter,
+  type CrashReporter,
+} from "../../../shared/domain/observability";
 import type {
   Database,
   Json,
@@ -24,6 +28,7 @@ import type {
   CandidateVote,
   ElectoralOffice,
   Location,
+  ProvincialActaLocation,
   QueueResult,
 } from "../domain/acta";
 import { assessAndStoreCameraPhoto } from "../infrastructure/photoEvidence";
@@ -185,7 +190,7 @@ function buildAuditChanges(
     ["blank_votes", "Votos en blanco"],
     ["null_votes", "Votos nulos"],
     ["status", "Estado"],
-    ["failure_stage", "Etapa de error"],
+    ["failure_stage", "Paso con problema"],
     ["photo_path", "Fotografía"],
     ["latitude", "Latitud"],
     ["longitude", "Longitud"],
@@ -217,11 +222,42 @@ export class SupabaseActaRepository implements ActaRepository {
   private readonly store = new SQLiteActaStore();
   private readonly listeners = new Set<Listener>();
   private readonly processingActaIds = new Set<string>();
+  private readonly cancelledOCRActaIds = new Set<string>();
   private readonly processingSubmissionIds = new Set<string>();
   private processingQueue = false;
   private processingSubmissionQueue = false;
 
-  constructor(private readonly client: SupabaseClient<Database> | null) {}
+  constructor(
+    private readonly client: SupabaseClient<Database> | null,
+    private readonly reporter: CrashReporter = noopCrashReporter,
+  ) {}
+
+  private reportFailure(
+    error: unknown,
+    operation: "ocr" | "submission",
+    stage: string,
+  ): void {
+    if (error instanceof Error && isNetworkError(error.message)) {
+      return;
+    }
+    this.reporter.recordNonFatal(error, {
+      screen: "ActaSync",
+      operation,
+      stage,
+      kind: "non_fatal",
+    });
+  }
+
+  getCachedStations(userId: string): Promise<AssignedStation[]> {
+    return this.store.getAssignedStations(userId);
+  }
+
+  async getLocationReference(precinctId: string): Promise<Location | null> {
+    const reference = await this.store.getLocationReference(precinctId);
+    return reference
+      ? { latitude: reference.latitude, longitude: reference.longitude }
+      : null;
+  }
 
   async loadActaStations(
     userId: string,
@@ -266,7 +302,7 @@ export class SupabaseActaRepository implements ActaRepository {
 
       let stationsQuery = client
         .from("polling_stations")
-        .select("id, station_number, precinct_id");
+        .select("id, station_number, sex, precinct_id");
       stationsQuery =
         role === "observer"
           ? stationsQuery.in("id", stationIds)
@@ -296,6 +332,7 @@ export class SupabaseActaRepository implements ActaRepository {
         return {
           id: station.id,
           stationNumber: station.station_number,
+          sex: station.sex,
           precinctId: station.precinct_id,
           precinctName,
         };
@@ -370,6 +407,7 @@ export class SupabaseActaRepository implements ActaRepository {
             id: acta.id,
             pollingStationId: acta.polling_station_id,
             stationNumber: station.stationNumber,
+            stationSex: station.sex,
             precinctName: station.precinctName,
             office: acta.office,
             status: acta.status,
@@ -411,6 +449,7 @@ export class SupabaseActaRepository implements ActaRepository {
         id: draft.id,
         pollingStationId: draft.pollingStationId,
         stationNumber: draft.stationNumber,
+        stationSex: draft.stationSex,
         precinctName: draft.precinctName,
         office: draft.office,
         status: draft.status,
@@ -423,6 +462,124 @@ export class SupabaseActaRepository implements ActaRepository {
     return [...remoteSummaries, ...localSummaries].sort((first, second) =>
       second.updatedAt.localeCompare(first.updatedAt),
     );
+  }
+
+  async loadProvincialActaLocations(): Promise<ProvincialActaLocation[]> {
+    if (!isOnline(await NetInfo.fetch())) {
+      throw new Error(
+        "Se necesita conexión para consultar las ubicaciones enviadas de la provincia.",
+      );
+    }
+
+    const client = this.getClient();
+    const pageSize = 500;
+    const actaRows: {
+      id: string;
+      polling_station_id: string;
+      office: ElectoralOffice;
+      latitude: number;
+      longitude: number;
+      captured_at_device: string;
+      updated_at: string;
+    }[] = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await client
+        .from("actas")
+        .select(
+          "id, polling_station_id, office, latitude, longitude, captured_at_device, updated_at",
+        )
+        .eq("status", "sent")
+        .order("updated_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      if (error) {
+        throw new Error(
+          `No se pudieron consultar las actas provinciales: ${error.message}`,
+        );
+      }
+      actaRows.push(...data);
+      if (data.length < pageSize) {
+        break;
+      }
+    }
+    if (actaRows.length === 0) {
+      return [];
+    }
+
+    const stationIds = [...new Set(actaRows.map((acta) => acta.polling_station_id))];
+    const { data: stationRows, error: stationError } = await client
+      .from("polling_stations")
+      .select("id, station_number, sex, precinct_id")
+      .in("id", stationIds);
+    if (stationError) {
+      throw new Error(
+        `No se pudieron consultar las mesas de las actas provinciales: ${stationError.message}`,
+      );
+    }
+
+    const stationById = new Map(
+      stationRows.map((station) => [station.id, station]),
+    );
+    const precinctIds = [...new Set(stationRows.map((station) => station.precinct_id))];
+    if (precinctIds.length === 0) {
+      throw new Error("No se encontraron recintos para las actas provinciales.");
+    }
+    const { data: precinctRows, error: precinctError } = await client
+      .from("precincts")
+      .select("id, name")
+      .in("id", precinctIds);
+    if (precinctError) {
+      throw new Error(
+        `No se pudieron consultar los recintos de las actas provinciales: ${precinctError.message}`,
+      );
+    }
+
+    const precinctById = new Map(
+      precinctRows.map((precinct) => [precinct.id, precinct]),
+    );
+    const { data: references, error: referenceError } = await client
+      .from("precinct_location_references")
+      .select("precinct_id, latitude, longitude")
+      .in("precinct_id", precinctIds);
+    if (referenceError) {
+      throw new Error(
+        `No se pudieron consultar las referencias GPS: ${referenceError.message}`,
+      );
+    }
+    const referenceByPrecinct = new Map(
+      references.map((reference) => [
+        reference.precinct_id,
+        { latitude: reference.latitude, longitude: reference.longitude },
+      ]),
+    );
+
+    return actaRows.map((acta) => {
+      const station = stationById.get(acta.polling_station_id);
+      if (!station) {
+        throw new Error("No se encontró la mesa de un acta provincial.");
+      }
+      const precinct = precinctById.get(station.precinct_id);
+      if (!precinct) {
+        throw new Error("No se encontró el recinto de un acta provincial.");
+      }
+      const location = {
+        latitude: acta.latitude,
+        longitude: acta.longitude,
+      };
+      return {
+        id: acta.id,
+        precinctName: precinct.name,
+        stationNumber: station.station_number,
+        stationSex: station.sex,
+        office: acta.office,
+        ...location,
+        capturedAtDevice: acta.captured_at_device,
+        warningMeters: getLocationWarning(
+          location,
+          referenceByPrecinct.get(station.precinct_id) ?? null,
+        ),
+      };
+    });
   }
 
   async loadCandidates(office: ElectoralOffice): Promise<Candidate[]> {
@@ -477,6 +634,7 @@ export class SupabaseActaRepository implements ActaRepository {
       ownerId: userId,
       pollingStationId: station.id,
       stationNumber: station.stationNumber,
+      stationSex: station.sex,
       precinctId: station.precinctId,
       precinctName: station.precinctName,
       office,
@@ -531,7 +689,7 @@ export class SupabaseActaRepository implements ActaRepository {
 
     const { data: station, error: stationError } = await client
       .from("polling_stations")
-      .select("id, station_number, precinct_id")
+      .select("id, station_number, sex, precinct_id")
       .eq("id", acta.polling_station_id)
       .single();
     if (stationError) {
@@ -558,6 +716,16 @@ export class SupabaseActaRepository implements ActaRepository {
     }
     if (existing?.correctionMode && existing.status !== "sent") {
       return existing;
+    }
+    const cachedDraft = existing ?? await this.store.findDraftById(acta.id);
+    if (
+      cachedDraft &&
+      cachedDraft.ownerId !== userId &&
+      cachedDraft.status !== "sent"
+    ) {
+      throw new Error(
+        "Esta acta tiene un borrador local pendiente de otra cuenta. Inicia sesión con esa cuenta y resuelve el borrador antes de corregirla.",
+      );
     }
 
     const { data: voteRows, error: votesError } = await client
@@ -610,30 +778,51 @@ export class SupabaseActaRepository implements ActaRepository {
       };
     });
 
-    const { data: photoBlob, error: photoError } = await client.storage
-      .from("acta-photos")
-      .download(acta.photo_path);
-    if (photoError) {
-      throw toUserError(photoError.message);
+    let photoUri = cachedDraft?.photoUri ?? null;
+    if (photoUri && !(await FileSystem.getInfoAsync(photoUri)).exists) {
+      photoUri = null;
     }
-    const documentDirectory = FileSystem.documentDirectory;
-    if (!documentDirectory) {
-      throw new Error("No está disponible el almacenamiento local para la foto.");
+    let downloadedPhotoUri: string | null = null;
+    if (!photoUri) {
+      const { data: signedPhoto, error: photoError } = await client.storage
+        .from("acta-photos")
+        .createSignedUrl(acta.photo_path, 60);
+      if (photoError) {
+        throw toUserError(photoError.message);
+      }
+      if (!signedPhoto) {
+        throw new Error("No se pudo preparar la descarga de la fotografía del acta.");
+      }
+      const documentDirectory = FileSystem.documentDirectory;
+      if (!documentDirectory) {
+        throw new Error("No está disponible el almacenamiento local para la foto.");
+      }
+      const photoDirectory = `${documentDirectory}acta-evidence/${id}/`;
+      const directoryInfo = await FileSystem.getInfoAsync(photoDirectory);
+      if (!directoryInfo.exists) {
+        await FileSystem.makeDirectoryAsync(photoDirectory, {
+          intermediates: true,
+        });
+      }
+      photoUri = `${photoDirectory}correction-${Crypto.randomUUID()}.jpg`;
+      let downloadResult: FileSystem.FileSystemDownloadResult;
+      try {
+        downloadResult = await FileSystem.downloadAsync(
+          signedPhoto.signedUrl,
+          photoUri,
+        );
+      } catch {
+        await FileSystem.deleteAsync(photoUri, { idempotent: true });
+        throw new Error("No se pudo descargar la fotografía para iniciar la corrección.");
+      }
+      if (downloadResult.status < 200 || downloadResult.status >= 300) {
+        await FileSystem.deleteAsync(photoUri, { idempotent: true });
+        throw new Error(
+          `La descarga de la fotografía para la corrección respondió HTTP ${downloadResult.status}.`,
+        );
+      }
+      downloadedPhotoUri = photoUri;
     }
-    const photoDirectory = `${documentDirectory}acta-evidence/${id}/`;
-    const directoryInfo = await FileSystem.getInfoAsync(photoDirectory);
-    if (!directoryInfo.exists) {
-      await FileSystem.makeDirectoryAsync(photoDirectory, {
-        intermediates: true,
-      });
-    }
-    const photoUri = `${photoDirectory}correction-${Crypto.randomUUID()}.jpg`;
-    const photoBase64 = this.encodeBase64(
-      new Uint8Array(await photoBlob.arrayBuffer()),
-    );
-    await FileSystem.writeAsStringAsync(photoUri, photoBase64, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
 
     const now = new Date().toISOString();
     const correctionTimestamp = getNextDeviceTimestamp(acta.device_modified_at);
@@ -642,6 +831,7 @@ export class SupabaseActaRepository implements ActaRepository {
       ownerId: userId,
       pollingStationId: station.id,
       stationNumber: station.station_number,
+      stationSex: station.sex,
       precinctId: precinct.id,
       precinctName: precinct.name,
       office: acta.office,
@@ -675,7 +865,9 @@ export class SupabaseActaRepository implements ActaRepository {
         await this.store.createDraft(draft);
       }
     } catch (error) {
-      await FileSystem.deleteAsync(photoUri, { idempotent: true });
+      if (downloadedPhotoUri) {
+        await FileSystem.deleteAsync(downloadedPhotoUri, { idempotent: true });
+      }
       throw error;
     }
     this.notify(draft);
@@ -864,13 +1056,12 @@ export class SupabaseActaRepository implements ActaRepository {
   }
 
   async enterResultsManually(draft: ActaDraft): Promise<ActaDraft> {
-    if (this.processingActaIds.has(draft.id)) {
-      throw new Error(
-        "El OCR está procesando esta fotografía. Espera el resultado antes de continuar manualmente.",
-      );
-    }
     if (!draft.photoUri) {
       throw new Error("Toma y acepta una fotografía antes de ingresar resultados.");
+    }
+    const cancelOCR = this.processingActaIds.has(draft.id);
+    if (cancelOCR) {
+      this.cancelledOCRActaIds.add(draft.id);
     }
     const updated = {
       ...draft,
@@ -879,7 +1070,14 @@ export class SupabaseActaRepository implements ActaRepository {
       submissionAuthorized: false,
       updatedAt: new Date().toISOString(),
     };
-    await this.store.saveDraft(updated);
+    try {
+      await this.store.saveDraft(updated);
+    } catch (error) {
+      if (cancelOCR) {
+        this.cancelledOCRActaIds.delete(draft.id);
+      }
+      throw error;
+    }
     this.notify(updated);
     return updated;
   }
@@ -899,7 +1097,6 @@ export class SupabaseActaRepository implements ActaRepository {
     };
     await this.store.saveDraft(updated);
     this.notify(updated);
-    await this.processPendingOCR(draft.ownerId);
   }
 
   async processPendingOCR(userId: string): Promise<QueueResult[]> {
@@ -960,6 +1157,14 @@ export class SupabaseActaRepository implements ActaRepository {
           try {
             proposal = await this.requestOCR(processing);
           } catch (ocrError) {
+            const latestDraft = await this.store.getDraft(draft.id, userId);
+            if (
+              this.cancelledOCRActaIds.has(draft.id) ||
+              latestDraft?.status !== "processing_ocr"
+            ) {
+              continue;
+            }
+            this.reportFailure(ocrError, "ocr", "request_ocr");
             const failed: ActaDraft = {
               ...processing,
               status: "failed",
@@ -982,6 +1187,13 @@ export class SupabaseActaRepository implements ActaRepository {
             });
             continue;
           }
+          const latestDraft = await this.store.getDraft(draft.id, userId);
+          if (
+            this.cancelledOCRActaIds.has(draft.id) ||
+            latestDraft?.status !== "processing_ocr"
+          ) {
+            continue;
+          }
           const updated: ActaDraft = {
             ...processing,
             totalVoters: proposal.totalVoters,
@@ -1001,6 +1213,7 @@ export class SupabaseActaRepository implements ActaRepository {
           outcomes.push({ actaId: draft.id, succeeded: true });
         } finally {
           this.processingActaIds.delete(draft.id);
+          this.cancelledOCRActaIds.delete(draft.id);
         }
       }
       return outcomes;
@@ -1224,6 +1437,7 @@ export class SupabaseActaRepository implements ActaRepository {
         this.notify(sent);
         return sent;
       } catch (error) {
+        this.reportFailure(error, "submission", "upload_or_submit");
         const failed: ActaDraft = {
           ...sending,
           status: "failed",
@@ -1455,14 +1669,6 @@ export class SupabaseActaRepository implements ActaRepository {
       bytes[index] = binary.charCodeAt(index);
     }
     return bytes;
-  }
-
-  private encodeBase64(bytes: Uint8Array): string {
-    let binary = "";
-    for (const byte of bytes) {
-      binary += String.fromCharCode(byte);
-    }
-    return btoa(binary);
   }
 
   private getClient(): SupabaseClient<Database> {

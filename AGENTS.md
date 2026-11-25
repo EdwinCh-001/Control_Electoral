@@ -32,6 +32,11 @@ Si una regla funcional no esta definida en esos documentos, no la inventes; deja
 - Expo Go se usa para recorridos habituales. Valida Crashlytics y el comportamiento nativo de segundo plano con un APK de EAS; Android puede posponer tareas de fondo.
 - No edites `android/` o `ios/` manualmente. Antes de usar una API nativa, consulta la documentacion compatible con la version instalada de Expo.
 
+## Guias de diseño
+
+- Las guias de diseño y accesibilidad estan en `.github/skills/`. Son documentacion de apoyo: no son dependencias de la app ni cambian los ADR.
+- Consulta `.github/skills/README.md` antes de cambiar interfaz. La paleta oficial ADN-7 esta definida alli y en `src/global.css`.
+
 ## Verificacion
 
 ```bash

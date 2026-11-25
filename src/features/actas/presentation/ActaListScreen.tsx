@@ -1,11 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { ChevronRight } from "lucide-react-native";
 
 import type { RootStackParamList } from "../../../app/navigationTypes";
 import { useAppSelector } from "../../../app/store";
-import { AuthPage, Feedback, PageTitle, PrimaryButton, SecondaryButton } from "../../access/presentation/components/AuthUi";
+import type { NoticeKind } from "../../../shared/presentation/messages";
+import { colors, fonts, radii, spacing } from "../../../shared/presentation/theme";
+import {
+  AuthPage,
+  EmptyState,
+  Feedback,
+  LoadingBlock,
+  Metric,
+  PageTitle,
+  SegmentedTabs,
+  StatusChip,
+  type StatusTone,
+} from "../../access/presentation/components/AuthUi";
 import { actaRepository } from "../data";
 import type {
   ActaDraft,
@@ -22,14 +35,17 @@ const officeLabels: Record<ElectoralOffice, string> = {
   prefect: "Prefectura",
 };
 
-const statusLabels: Record<ActaStatus, string> = {
-  draft: "Borrador sin fotografía",
-  pending: "Pendiente de OCR",
-  processing_ocr: "Procesando imagen",
-  ready: "Pendiente de revisión",
-  sending: "Enviando",
-  sent: "Enviada",
-  failed: "Requiere atención",
+const statusPresentation: Record<
+  ActaStatus,
+  { label: string; tone: StatusTone }
+> = {
+  draft: { label: "Falta foto", tone: "muted" },
+  pending: { label: "Foto guardada", tone: "warning" },
+  processing_ocr: { label: "Leyendo foto", tone: "warning" },
+  ready: { label: "Lista para revisar", tone: "action" },
+  sending: { label: "Subiendo acta", tone: "warning" },
+  sent: { label: "Acta subida", tone: "success" },
+  failed: { label: "Requiere atención", tone: "danger" },
 };
 
 function getSummary(
@@ -47,11 +63,23 @@ export function ActaListScreen({ navigation }: Props) {
   const session = useAppSelector((state) => state.auth.session);
   const [stations, setStations] = useState<AssignedStation[]>([]);
   const [summaries, setSummaries] = useState<ActaSummary[]>([]);
+  const [filter, setFilter] = useState<"all" | "pending" | "sent">("all");
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [busyStation, setBusyStation] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{
+    kind: NoticeKind;
+    message: string;
+  } | null>(null);
+  const userId = session?.userId ?? null;
+  const role = session?.profile.role ?? null;
   const lastStatusByActa = useRef(new Map<string, ActaStatus>());
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialUserId = useRef<string | null>(null);
+  const isLoadingRef = useRef(false);
+  const hasNetworkStateRef = useRef(false);
+  const wasOnlineRef = useRef(false);
 
   const processQueue = useCallback(async (userId: string) => {
     try {
@@ -69,33 +97,41 @@ export function ActaListScreen({ navigation }: Props) {
       setError(
         queueError instanceof Error
           ? queueError.message
-          : "No se pudo procesar la cola pendiente.",
+          : "No se pudieron terminar las tareas pendientes. Vuelve a intentar.",
       );
     }
   }, []);
 
   const load = useCallback(async () => {
-    if (!session) {
+    if (!userId || !role) {
       return;
     }
+    if (isLoadingRef.current) {
+      return;
+    }
+    isLoadingRef.current = true;
     try {
-      if (session.profile.role === "provincial_coordinator") {
+      if (role === "provincial_coordinator") {
         throw new Error(
-          "El seguimiento provincial de actas corresponde a la siguiente feature.",
+          "El tablero provincial se abre desde el inicio. Vuelve y elige Tablero provincial.",
         );
       }
+      const cachedStations = await actaRepository.getCachedStations(userId);
+      if (cachedStations.length) {
+        setStations(cachedStations);
+        setIsLoading(false);
+      }
       const assignedStations = await actaRepository.loadActaStations(
-        session.userId,
-        session.profile.role,
+        userId,
+        role,
       );
       setError(null);
       const actaSummaries = await actaRepository.listSummaries(
-        session.userId,
+        userId,
         assignedStations,
       );
       setStations(assignedStations);
       setSummaries(actaSummaries);
-      void processQueue(session.userId);
     } catch (loadError) {
       setError(
         loadError instanceof Error
@@ -103,39 +139,86 @@ export function ActaListScreen({ navigation }: Props) {
           : "No se pudieron cargar las actas asignadas.",
       );
     } finally {
+      isLoadingRef.current = false;
       setIsLoading(false);
+      setIsRefreshing(false);
     }
-  }, [processQueue, session]);
+  }, [userId, role]);
+
+  const scheduleReload = useCallback(() => {
+    if (!userId) {
+      return;
+    }
+    if (refreshTimer.current) {
+      clearTimeout(refreshTimer.current);
+    }
+    const attempt = () => {
+      if (isLoadingRef.current) {
+        refreshTimer.current = setTimeout(attempt, 160);
+        return;
+      }
+      refreshTimer.current = null;
+      void load();
+    };
+    refreshTimer.current = setTimeout(attempt, 160);
+  }, [load, userId]);
 
   useEffect(() => {
-    void Promise.resolve().then(load);
+    if (!userId || !role) {
+      return;
+    }
+    if (initialUserId.current !== userId) {
+      initialUserId.current = userId;
+      void Promise.resolve()
+        .then(load)
+        .then(() => processQueue(userId));
+    } else {
+      void load();
+    }
+
     const unsubscribe = actaRepository.subscribe((actaId, status) => {
       const previousStatus = lastStatusByActa.current.get(actaId);
       lastStatusByActa.current.set(actaId, status);
       if (previousStatus !== status) {
         if (status === "ready") {
-          setNotice("Un acta está lista para revisión.");
+          setNotice({
+            kind: "info",
+            message: "Ya puedes revisar un acta. Abre la mesa para continuar.",
+          });
         } else if (status === "sent") {
-          setNotice("El servidor confirmó el envío de un acta.");
+          setNotice({
+            kind: "success",
+            message: "Acta subida correctamente.",
+          });
         } else if (status === "failed") {
-          setNotice("Un proceso falló. El acta se conserva para reintentar.");
+          setNotice({
+            kind: "warning",
+            message:
+              "No pudimos subir un acta. Quedó guardada en este dispositivo para reintentar.",
+          });
         }
       }
-      void load();
+      scheduleReload();
     });
     const unsubscribeNetwork = NetInfo.addEventListener((state) => {
-      if (state.isConnected && state.isInternetReachable !== false) {
-        void load();
-        if (session) {
-          void processQueue(session.userId);
-        }
+      const online =
+        state.isConnected === true && state.isInternetReachable !== false;
+      if (online && hasNetworkStateRef.current && !wasOnlineRef.current) {
+        scheduleReload();
+        void processQueue(userId);
       }
+      hasNetworkStateRef.current = true;
+      wasOnlineRef.current = online;
     });
     return () => {
       unsubscribe();
       unsubscribeNetwork();
+      if (refreshTimer.current) {
+        clearTimeout(refreshTimer.current);
+      }
+      refreshTimer.current = null;
     };
-  }, [load, processQueue, session]);
+  }, [userId, role, load, processQueue, scheduleReload]);
 
   const openActa = async (
     station: AssignedStation,
@@ -165,7 +248,7 @@ export function ActaListScreen({ navigation }: Props) {
         );
       } else {
         throw new Error(
-          "Esta acta no tiene una revisión local pendiente ni está disponible para corregir.",
+          "Esta acta no está lista para corregir en este dispositivo. Actualiza las mesas e intenta de nuevo.",
         );
       }
       if (!draft) {
@@ -185,9 +268,44 @@ export function ActaListScreen({ navigation }: Props) {
     }
   };
 
+  const readyCount = summaries.filter(
+    (summary) => summary.status === "ready",
+  ).length;
+  const sentCount = summaries.filter(
+    (summary) => summary.status === "sent",
+  ).length;
+  const pendingCount = summaries.filter(
+    (summary) =>
+      summary.status === "draft" ||
+      summary.status === "pending" ||
+      summary.status === "processing_ocr" ||
+      summary.status === "sending",
+  ).length;
+  const failedCount = summaries.filter(
+    (summary) => summary.status === "failed",
+  ).length;
+
+  const filteredStations = stations.filter((station) => {
+    if (filter === "all") {
+      return true;
+    }
+    const mayor = getSummary(summaries, station.id, "mayor");
+    const prefect = getSummary(summaries, station.id, "prefect");
+    const bothSent = mayor?.status === "sent" && prefect?.status === "sent";
+    return filter === "sent" ? bothSent : !bothSent;
+  });
+
   return (
-    <AuthPage>
+    <AuthPage
+      onBack={() => navigation.goBack()}
+      onRefresh={() => {
+        setIsRefreshing(true);
+        scheduleReload();
+      }}
+      refreshing={isRefreshing}
+    >
       <PageTitle
+        eyebrow="Trabajo de campo"
         title={
           session?.profile.role === "precinct_coordinator"
             ? "Actas del recinto"
@@ -195,130 +313,245 @@ export function ActaListScreen({ navigation }: Props) {
         }
         description={
           session?.profile.role === "precinct_coordinator"
-            ? "Consulta y corrige actas enviadas en tu recinto."
-            : "Mesas asignadas y borradores disponibles en este dispositivo."
+            ? "Consulta y corrige."
+            : "Foto, números y envío."
         }
       />
+
       {error ? <Feedback message={error} /> : null}
-      {notice ? <Feedback kind="success" message={notice} /> : null}
+      {notice ? (
+        <Feedback kind={notice.kind} message={notice.message} />
+      ) : null}
+
       {isLoading ? (
-        <View style={styles.loading}>
-          <ActivityIndicator accessibilityLabel="Cargando mesas asignadas" />
-          <Text style={styles.muted}>Cargando tus mesas…</Text>
-        </View>
+        <LoadingBlock message="Cargando tus mesas asignadas…" />
       ) : stations.length === 0 ? (
-        <Feedback
-          kind="info"
-          message="No hay mesas asignadas guardadas. Conéctate para cargar tus asignaciones."
+        <EmptyState
+          title="Aún no tienes mesas asignadas"
+          message="Desliza hacia abajo cuando tengas conexión para cargar tus asignaciones."
         />
       ) : (
-        <View style={styles.stationList}>
-          {stations.map((station) => (
-            <View key={station.id} style={styles.stationCard}>
-              <Text style={styles.stationTitle}>
-                {station.precinctName} · Mesa {station.stationNumber}
-              </Text>
-              {(["mayor", "prefect"] as const).map((office) => {
-                const summary = getSummary(summaries, station.id, office);
-                const busyKey = `${station.id}-${office}`;
-                const canCreate =
-                  session?.profile.role === "observer" && !summary;
-                const canContinue =
-                  Boolean(summary?.localDraft) && summary?.status !== "sent";
-                const canCorrect = summary?.status === "sent";
-                const canOpen = canCreate || canContinue || canCorrect;
-
-                return (
-                  <View key={office} style={styles.officeRow}>
-                    <View style={styles.officeDetails}>
-                      <Text style={styles.officeTitle}>{officeLabels[office]}</Text>
-                      {summary ? (
-                        <Text style={styles.status}>
-                          {statusLabels[summary.status]}
-                        </Text>
-                      ) : (
-                        <Text style={styles.muted}>Sin captura</Text>
-                      )}
-                    </View>
-                    {canOpen ? (
-                      <SecondaryButton
-                        disabled={busyStation !== null}
-                        label={
-                          busyStation === busyKey
-                            ? "Abriendo…"
-                            : canCorrect
-                              ? "Corregir"
-                              : canContinue
-                                ? "Continuar"
-                                : "Capturar"
-                        }
-                        onPress={() => void openActa(station, office)}
-                      />
-                    ) : null}
-                  </View>
-                );
-              })}
+        <>
+          <View style={styles.summaryStrip}>
+            <View style={styles.metricsRow}>
+              <Metric value={stations.length} label="mesas" />
+              <View style={styles.metricDivider} />
+              <Metric
+                value={readyCount}
+                label="por revisar"
+                tone={readyCount > 0 ? "warning" : "default"}
+              />
+              <View style={styles.metricDivider} />
+              <Metric value={sentCount} label="subidas" tone="success" />
             </View>
-          ))}
-        </View>
+            <Text style={styles.summaryHint}>
+              {failedCount > 0
+                ? `${failedCount} acta${failedCount === 1 ? "" : "s"} necesita${failedCount === 1 ? "" : "n"} atención.`
+                : pendingCount > 0
+                  ? `${pendingCount} captura${pendingCount === 1 ? "" : "s"} guardada${pendingCount === 1 ? "" : "s"} en este dispositivo.`
+                  : "Desliza hacia abajo para actualizar."}
+            </Text>
+          </View>
+
+          <SegmentedTabs
+            onChange={setFilter}
+            options={[
+              { key: "all", label: "Todas", badge: stations.length },
+              { key: "pending", label: "Pendientes" },
+              { key: "sent", label: "Subidas" },
+            ]}
+            value={filter}
+          />
+
+          {filteredStations.length === 0 ? (
+            <EmptyState
+              title="Sin mesas en este filtro"
+              message="Cambia de pestaña para ver el resto de tus mesas."
+            />
+          ) : (
+            <View style={styles.stationList}>
+              {filteredStations.map((station) => (
+                <View key={station.id} style={styles.stationBlock}>
+                  <View style={styles.stationHeader}>
+                    <View style={styles.stationMark} />
+                    <View style={styles.stationCopy}>
+                      <Text style={styles.stationTitle}>
+                        {station.precinctName}
+                      </Text>
+                      <Text style={styles.stationMeta}>
+                        Mesa {station.stationNumber}
+                        {station.sex
+                          ? ` · ${station.sex === "female" ? "Mujeres" : "Hombres"}`
+                          : ""}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.officesWrap}>
+                    {(["mayor", "prefect"] as const).map((office) => {
+                      const summary = getSummary(summaries, station.id, office);
+                      const busyKey = `${station.id}-${office}`;
+                      const canCreate =
+                        session?.profile.role === "observer" && !summary;
+                      const canContinue =
+                        Boolean(summary?.localDraft) && summary?.status !== "sent";
+                      const canCorrect = summary?.status === "sent";
+                      const canOpen = canCreate || canContinue || canCorrect;
+                      const presentation = summary
+                        ? statusPresentation[summary.status]
+                        : { label: "Sin captura", tone: "muted" as StatusTone };
+
+                      return (
+                        <Pressable
+                          accessibilityLabel={`${officeLabels[office]} · ${presentation.label}`}
+                          accessibilityRole={canOpen ? "button" : undefined}
+                          disabled={!canOpen || busyStation !== null}
+                          key={office}
+                          onPress={() => {
+                            if (canOpen) {
+                              void openActa(station, office);
+                            }
+                          }}
+                          style={styles.officeRow}
+                        >
+                          <View style={styles.officeDetails}>
+                            <Text style={styles.officeTitle}>
+                              {officeLabels[office]}
+                            </Text>
+                            <StatusChip
+                              label={presentation.label}
+                              tone={presentation.tone}
+                            />
+                          </View>
+                          {canOpen ? (
+                            <View style={styles.inlinePill}>
+                              <Text style={styles.inlinePillText}>
+                                {busyStation === busyKey
+                                  ? "Abriendo…"
+                                  : canCorrect
+                                    ? "Corregir"
+                                    : canContinue
+                                      ? "Continuar"
+                                      : "Capturar"}
+                              </Text>
+                              <ChevronRight
+                                color={colors.primary}
+                                size={16}
+                                strokeWidth={2.4}
+                              />
+                            </View>
+                          ) : null}
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </>
       )}
-      <PrimaryButton
-        disabled={isLoading}
-        label="Actualizar asignaciones e historial"
-        onPress={() => void load()}
-      />
-      <SecondaryButton
-        label="Volver"
-        onPress={() => navigation.goBack()}
-      />
     </AuthPage>
   );
 }
 
 const styles = StyleSheet.create({
-  loading: {
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 28,
+  summaryStrip: {
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    borderLeftColor: colors.accent,
+    borderLeftWidth: 4,
+    gap: spacing.sm,
+    paddingBottom: spacing.md,
+    paddingLeft: spacing.md,
+  },
+  metricsRow: {
+    alignItems: "stretch",
+    flexDirection: "row",
+    gap: spacing.md,
+  },
+  metricDivider: {
+    backgroundColor: colors.border,
+    width: 1,
+  },
+  summaryHint: {
+    color: colors.inkMuted,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    lineHeight: 17,
   },
   stationList: {
-    gap: 12,
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
   },
-  stationCard: {
-    backgroundColor: "#F3F4F6",
-    borderRadius: 10,
-    gap: 12,
-    padding: 16,
+  stationBlock: {
+    borderBottomColor: colors.border,
+    borderBottomWidth: 1,
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+  },
+  stationHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  stationMark: {
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+    height: 28,
+    width: 3,
+  },
+  stationCopy: {
+    flex: 1,
+    gap: 1,
   },
   stationTitle: {
-    color: "#111827",
+    color: colors.ink,
+    fontFamily: fonts.bodyBold,
     fontSize: 16,
-    fontWeight: "700",
+    lineHeight: 21,
+  },
+  stationMeta: {
+    color: colors.inkMuted,
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  officesWrap: {
+    gap: spacing.xs,
+    paddingLeft: spacing.md,
   },
   officeRow: {
     alignItems: "center",
-    borderTopColor: "#D1D5DB",
-    borderTopWidth: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
     flexDirection: "row",
-    gap: 8,
+    gap: spacing.sm,
     justifyContent: "space-between",
-    paddingTop: 10,
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
   },
   officeDetails: {
+    alignItems: "center",
     flex: 1,
-    gap: 3,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
   },
   officeTitle: {
-    color: "#1F2937",
+    color: colors.ink,
+    fontFamily: fonts.bodyBold,
     fontSize: 14,
-    fontWeight: "600",
   },
-  status: {
-    color: "#4B5563",
+  inlinePill: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 2,
+  },
+  inlinePillText: {
+    color: colors.primary,
+    fontFamily: fonts.bodyBold,
     fontSize: 13,
-  },
-  muted: {
-    color: "#6B7280",
-    fontSize: 14,
   },
 });

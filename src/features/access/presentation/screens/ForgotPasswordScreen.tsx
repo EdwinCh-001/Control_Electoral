@@ -40,7 +40,7 @@ export function ForgotPasswordScreen({ navigation }: Props) {
     try {
       await authRepository.requestPasswordReset(email);
       setMessage(
-        "Si la cuenta existe, recibirás un correo con instrucciones para restablecer la contraseña.",
+        "Revisa tu correo. Si la cuenta existe, recibirás un enlace para crear una contraseña nueva.",
       );
     } catch (requestError) {
       setError(
@@ -56,7 +56,8 @@ export function ForgotPasswordScreen({ navigation }: Props) {
   return (
     <AuthPage>
       <PageTitle
-        title="Recuperar contraseña"
+        eyebrow="Acceso"
+        title="Recupera tu contraseña"
         description="Te enviaremos un enlace para crear una contraseña nueva."
       />
       <FormField
@@ -73,11 +74,11 @@ export function ForgotPasswordScreen({ navigation }: Props) {
       {error ? <Feedback message={error} /> : null}
       <PrimaryButton
         disabled={isSubmitting}
-        label={isSubmitting ? "Enviando…" : "Enviar enlace"}
+        label={isSubmitting ? "Enviando…" : "Enviar instrucciones"}
         onPress={() => void onSubmit()}
       />
       <SecondaryButton
-        label="Volver a iniciar sesión"
+        label="Volver al inicio de sesión"
         onPress={() => navigation.navigate("SignIn")}
       />
     </AuthPage>

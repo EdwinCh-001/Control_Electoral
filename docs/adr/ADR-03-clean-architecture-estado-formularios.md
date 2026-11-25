@@ -1,29 +1,25 @@
-# ADR-03: Clean Architecture, estado y formularios
-
-**Estado:** Aceptado
+# ADR-03: Arquitectura de Software, Gestión de Estado Global y Validación de Formularios
 
 ## Requerimientos relacionados
 
-RF-01, RF-02, RF-03, RF-07, RF-09, RF-10, RF-11, RF-12, RNF-04.
+F-02, RF-07, RF-09, RF-10, RF-11, RF-12, RNF-04, RNF-05
 
 ## Contexto
 
-La aplicacion requiere capas separadas, manejo de estado global y formularios con validaciones coherentes, sin acoplar las reglas de dominio a la interfaz o a los servicios externos.
+El proyecto exige organizar el código bajo clean architecture manteniendo coherencia sobre la separación de responsabilidades y asegurar fluidez en dispositivos Android. Así como mantener un control dentro de los formularios para las validaciones tanto en la creación de los usuarios como las reglas aritméticas de las actas.
 
-## Stack y decision
+## Alternativas consideradas
 
-- Clean Architecture: Domain, Data, Infrastructure y Presentation.
-- Redux Toolkit para estado global.
-- React Hook Form y Zod para formularios y validacion de entradas.
+| Alternativa | Propuesta por | Ventajas | Desventajas o limitaciones |
+|---|---|---|---|
+| Clean Architecture (Domain – Data – Infraestructure – Presentation), Zustand, React Hook Form, Zod | Bryan Rodrigo Salvador Martinez | Desacoplar reglas electorales en esquemas Zod reutilizables, entre dominio y presentación. React Hook Form evita re-renders por cada pulsación de tecla en formularios largos y zustant gestiona el estado global para las pantallas. | Requiere configurar resolvers y tipar estrictamente los formularios con datos nulleable para aceptar los datos provenientes de la inteligencia artificial. |
+| Clean Architecture (Domain – Data – Infraestructure – Presentation), Redux Toolkit, React Hook Form, Zod | Edwin Chusin | Alto nivel de estandarización y herramientas maduras.Para el worker de 2 fases se permite reflejar y sincronizar ese estado operativo global en cualquier pantalla donde se encuentre el usuario sin la dependencia de estados locales. | Pide que la implementación sea más estricta para estados intermedios que puede llegar a ser innecesaria. Además de riesgo de sobre ingeniería que podría dificultar mantener y depurar el proyecto. |
+| Clean Architecture | Emily Pazmiño | Permite tener desacoplamiento de la lógica de negocio y dar mentenimiento sencillo a largo plazo | Se necesita mayor tiempo inicial de desarrollo |
 
-## Ventajas y desventajas
+## Decisión
 
-- Mantiene las reglas de dominio desacopladas y facilita probar cada responsabilidad.
-- Redux Toolkit aporta una gestion de estado global estandarizada y modular.
-- Su uso puede resultar estricto o excesivo para estados intermedios; debe limitarse al estado global necesario.
-- React Hook Form evita renderizados innecesarios en formularios y Zod centraliza esquemas de validacion.
+CLEAN ARCHITECTURE, CON REDUX TOOLKIT, REACT HOOK FORM Y ZOD, PARA EL MANEJO DE ESTADOS Y FORMULARIOS
 
 ## Consecuencias
 
-- Redux Toolkit, React Hook Form y Zod se aplican de forma coherente con las capas acordadas.
-- Las reglas y los modelos del dominio no dependen de la interfaz ni de proveedores externos.
+Se gana que se tienen reglas estrictas del estado de globalización, pero es obligatorio regirnos a su implementación estricta.

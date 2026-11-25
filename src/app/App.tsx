@@ -1,8 +1,14 @@
+import "../global.css";
+
 import { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { Provider } from "react-redux";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import {
+  configureReanimatedLogger,
+  ReanimatedLogLevel,
+} from "react-native-reanimated";
 
 import { authRepository } from "../features/access/data";
 import { supabaseConfigurationError } from "../features/access/infrastructure/supabaseClient";
@@ -16,7 +22,20 @@ import {
   setUnconfigured,
 } from "../features/access/presentation/authSlice";
 import { RootNavigator } from "../features/access/presentation/navigation/RootNavigator";
+import { crashReporter } from "../shared/infrastructure/CrashReporter";
+import { installGlobalErrorHandler } from "../shared/infrastructure/installGlobalErrorHandler";
 import { store, useAppDispatch } from "./store";
+
+/*
+ * @gorhom/bottom-sheet passes web-only dependency arrays to Reanimated hooks.
+ * Native ignores them by design. Reanimated emits those warnings via warnOnce,
+ * which ignores `strict`; raising the level to error suppresses the noise but
+ * keeps real Reanimated errors visible.
+ */
+configureReanimatedLogger({
+  level: ReanimatedLogLevel.error,
+  strict: false,
+});
 
 function AuthBootstrap() {
   const dispatch = useAppDispatch();
@@ -81,6 +100,10 @@ function AuthBootstrap() {
 }
 
 export default function App() {
+  useEffect(() => {
+    installGlobalErrorHandler(crashReporter);
+  }, []);
+
   return (
     <Provider store={store}>
       <AuthRepositoryProvider repository={authRepository}>

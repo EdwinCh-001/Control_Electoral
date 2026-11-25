@@ -5,11 +5,7 @@ import { z } from "zod";
 
 import { supabase, supabaseConfigurationError } from "./supabase";
 
-type PageMode = "checking" | "request" | "update" | "done" | "confirmed";
-
-const emailSchema = z.object({
-  email: z.email("Ingresa un correo válido.").trim().toLowerCase(),
-});
+type PageMode = "checking" | "update" | "done" | "confirmed" | "invalid";
 
 const passwordSchema = z
   .object({
@@ -21,7 +17,6 @@ const passwordSchema = z
     path: ["confirmPassword"],
   });
 
-type EmailValues = z.infer<typeof emailSchema>;
 type PasswordValues = z.infer<typeof passwordSchema>;
 
 async function getFunctionError(error: {
@@ -48,16 +43,9 @@ async function getFunctionError(error: {
 }
 
 export default function App() {
-  const [mode, setMode] = useState<PageMode>(
-    supabaseConfigurationError ? "request" : "checking",
-  );
-  const [message, setMessage] = useState<string | null>(null);
+  const [mode, setMode] = useState<PageMode>("checking");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const emailForm = useForm<EmailValues>({
-    resolver: zodResolver(emailSchema),
-    defaultValues: { email: "" },
-  });
   const passwordForm = useForm<PasswordValues>({
     resolver: zodResolver(passwordSchema),
     defaultValues: { password: "", confirmPassword: "" },
@@ -69,36 +57,59 @@ export default function App() {
     }
 
     let active = true;
+    const path = window.location.pathname.replace(/\/+$/, "") || "/";
+    const isResetPasswordRoute = path === "/reset-password";
+    const isEmailVerifiedRoute = path === "/email-verified";
     const searchParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.slice(1));
     const recoveryInUrl =
-      window.location.pathname.endsWith("/reset-password") ||
-      hashParams.get("type") === "recovery";
-    const signupConfirmationInUrl =
-      searchParams.get("type") === "signup" ||
-      hashParams.get("type") === "signup" ||
-      (searchParams.has("code") && !recoveryInUrl);
+      (searchParams.get("type") === "recovery" &&
+        (searchParams.has("code") || searchParams.has("access_token"))) ||
+      (hashParams.get("type") === "recovery" &&
+        (hashParams.has("code") || hashParams.has("access_token")));
     const linkError =
       searchParams.has("error") ||
       searchParams.has("error_description") ||
-      hashParams.has("error");
+      searchParams.has("error_code") ||
+      hashParams.has("error") ||
+      hashParams.has("error_description") ||
+      hashParams.has("error_code");
+
+    if (linkError) {
+      setErrorMessage(
+        "El enlace es inválido o venció. Solicita uno nuevo desde la aplicación.",
+      );
+      setMode("invalid");
+      return () => {
+        active = false;
+      };
+    }
+
+    if (isEmailVerifiedRoute) {
+      setMode("confirmed");
+      return () => {
+        active = false;
+      };
+    }
+
+    if (!isResetPasswordRoute) {
+      setMode("invalid");
+      return () => {
+        active = false;
+      };
+    }
+
+    let recoverySessionDetected = false;
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) {
         return;
       }
-      if (event === "PASSWORD_RECOVERY") {
+      if (event === "PASSWORD_RECOVERY" && session) {
+        recoverySessionDetected = true;
         setMode("update");
         setErrorMessage(null);
-      } else if (event === "SIGNED_OUT") {
-        setMode("request");
-      } else if (session) {
-        if (recoveryInUrl) {
-          setMode("update");
-        } else if (signupConfirmationInUrl) {
-          setMode("confirmed");
-        }
       }
     });
 
@@ -110,29 +121,28 @@ export default function App() {
         }
         if (error) {
           setErrorMessage(
-            "El enlace pudo haber vencido. Solicita un enlace nuevo desde la aplicación.",
+            "El enlace de recuperación pudo haber vencido. Solicita uno nuevo desde la aplicación.",
           );
-          setMode("request");
+          setMode("invalid");
           return;
         }
 
-        if (data.session && recoveryInUrl) {
+        if (
+          data.session &&
+          (recoveryInUrl || recoverySessionDetected)
+        ) {
           setMode("update");
-        } else if (data.session && signupConfirmationInUrl) {
-          setMode("confirmed");
         } else {
-          if (linkError) {
-            setErrorMessage(
-              "El enlace es inválido o venció. Solicita uno nuevo desde la aplicación.",
-            );
-          }
-          setMode("request");
+          setErrorMessage(
+            "Abre un enlace de recuperación válido enviado a tu correo.",
+          );
+          setMode("invalid");
         }
       })
       .catch(() => {
         if (active) {
           setErrorMessage("No se pudo comprobar el enlace de recuperación.");
-          setMode("request");
+          setMode("invalid");
         }
       });
 
@@ -142,50 +152,12 @@ export default function App() {
     };
   }, []);
 
-  const requestReset = emailForm.handleSubmit(async ({ email }) => {
-    if (!supabase) {
-      return;
-    }
-
-    setErrorMessage(null);
-    setMessage(null);
-    setIsSubmitting(true);
-
-    try {
-      const redirectTo = new URL("/reset-password", window.location.origin);
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectTo.toString(),
-      });
-      if (error) {
-        throw error;
-      }
-      setMessage(
-        "Si la cuenta existe, recibirás un correo con instrucciones para restablecer la contraseña.",
-      );
-    } catch (requestError) {
-      const requestMessage =
-        requestError instanceof Error ? requestError.message.toLowerCase() : "";
-      setErrorMessage(
-        requestMessage.includes("rate limit") ||
-          requestMessage.includes("too many")
-          ? "Se alcanzó el límite de correos. Espera antes de solicitar otro enlace."
-          : requestMessage.includes("network") ||
-              requestMessage.includes("fetch")
-            ? "No se pudo conectar. Revisa internet e inténtalo de nuevo."
-            : "Auth no pudo enviar el enlace. Verifica SMTP y las URLs permitidas en Supabase.",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  });
-
   const updatePassword = passwordForm.handleSubmit(async ({ password }) => {
     if (!supabase) {
       return;
     }
 
     setErrorMessage(null);
-    setMessage(null);
     setIsSubmitting(true);
 
     try {
@@ -221,7 +193,7 @@ export default function App() {
       <main className="page">
         <section className="card" aria-labelledby="page-title">
           <p className="eyebrow">Control Electoral</p>
-          <h1 id="page-title">Recuperar acceso</h1>
+          <h1 id="page-title">Acceso no configurado</h1>
           <p role="status">{supabaseConfigurationError}</p>
           <p>
             El administrador debe configurar las variables públicas de Supabase
@@ -253,9 +225,6 @@ export default function App() {
             Ya puedes volver a la aplicación e ingresar con tu contraseña
             nueva.
           </p>
-          <a className="button" href="examen1://login">
-            Abrir la aplicación
-          </a>
         </section>
       </main>
     );
@@ -267,97 +236,71 @@ export default function App() {
         <section className="card" aria-labelledby="page-title">
           <p className="eyebrow">Control Electoral</p>
           <h1 id="page-title">Correo confirmado</h1>
-          <p>
-            Tu cuenta ya puede usarse. Vuelve a la aplicación e ingresa con la
-            contraseña temporal que te entregó tu coordinador.
-          </p>
-          <a className="button" href="examen1://login">
-            Abrir la aplicación
-          </a>
+          <p>Tu correo se verificó correctamente.</p>
         </section>
       </main>
     );
   }
 
-  const isUpdating = mode === "update";
+  if (mode === "invalid") {
+    return (
+      <main className="page">
+        <section className="card" aria-labelledby="page-title">
+          <p className="eyebrow">Control Electoral</p>
+          <h1 id="page-title">Enlace inválido</h1>
+          <p role="alert">
+            {errorMessage ??
+              "Abre desde tu correo el enlace de verificación o recuperación."}
+          </p>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="page">
       <section className="card" aria-labelledby="page-title">
         <p className="eyebrow">Control Electoral</p>
-        <h1 id="page-title">
-          {isUpdating ? "Crear contraseña nueva" : "Recuperar contraseña"}
-        </h1>
-        <p>
-          {isUpdating
-            ? "Elige una contraseña y confírmala para recuperar el acceso."
-            : "Ingresa el correo de tu cuenta. Si existe, recibirás un enlace de recuperación."}
-        </p>
+        <h1 id="page-title">Crear contraseña nueva</h1>
+        <p>Elige una contraseña y confírmala para recuperar el acceso.</p>
 
         {errorMessage ? (
           <p className="feedback error" role="alert">
             {errorMessage}
           </p>
         ) : null}
-        {message ? (
-          <p className="feedback success" role="status">
-            {message}
-          </p>
-        ) : null}
 
-        {isUpdating ? (
-          <form onSubmit={updatePassword} noValidate>
-            <label htmlFor="password">Contraseña nueva</label>
-            <input
-              autoComplete="new-password"
-              id="password"
-              type="password"
-              {...passwordForm.register("password")}
-            />
-            {passwordForm.formState.errors.password?.message ? (
-              <span className="field-error">
-                {passwordForm.formState.errors.password.message}
-              </span>
-            ) : null}
+        <form onSubmit={updatePassword} noValidate>
+          <label htmlFor="password">Contraseña nueva</label>
+          <input
+            autoComplete="new-password"
+            id="password"
+            type="password"
+            {...passwordForm.register("password")}
+          />
+          {passwordForm.formState.errors.password?.message ? (
+            <span className="field-error">
+              {passwordForm.formState.errors.password.message}
+            </span>
+          ) : null}
 
-            <label htmlFor="confirmPassword">Confirmar contraseña</label>
-            <input
-              autoComplete="new-password"
-              id="confirmPassword"
-              type="password"
-              {...passwordForm.register("confirmPassword")}
-            />
-            {passwordForm.formState.errors.confirmPassword?.message ? (
-              <span className="field-error">
-                {passwordForm.formState.errors.confirmPassword.message}
-              </span>
-            ) : null}
+          <label htmlFor="confirmPassword">Confirmar contraseña</label>
+          <input
+            autoComplete="new-password"
+            id="confirmPassword"
+            type="password"
+            {...passwordForm.register("confirmPassword")}
+          />
+          {passwordForm.formState.errors.confirmPassword?.message ? (
+            <span className="field-error">
+              {passwordForm.formState.errors.confirmPassword.message}
+            </span>
+          ) : null}
 
-            <button disabled={isSubmitting} type="submit">
-              {isSubmitting ? "Actualizando…" : "Actualizar contraseña"}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={requestReset} noValidate>
-            <label htmlFor="email">Correo electrónico</label>
-            <input
-              autoComplete="email"
-              id="email"
-              inputMode="email"
-              type="email"
-              {...emailForm.register("email")}
-            />
-            {emailForm.formState.errors.email?.message ? (
-              <span className="field-error">
-                {emailForm.formState.errors.email.message}
-              </span>
-            ) : null}
-
-            <button disabled={isSubmitting} type="submit">
-              {isSubmitting ? "Enviando…" : "Enviar enlace"}
-            </button>
-          </form>
-        )}
+          <button disabled={isSubmitting} type="submit">
+            {isSubmitting ? "Actualizando…" : "Actualizar contraseña"}
+          </button>
+        </form>
       </section>
     </main>
   );

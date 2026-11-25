@@ -174,7 +174,7 @@ export class SupabaseTerritoryRepository implements TerritoryRepository {
 
     const { data: stations, error: stationError } = await client
       .from("polling_stations")
-      .select("id, precinct_id, station_number")
+      .select("id, precinct_id, sex, station_number")
       .in("precinct_id", precinctIds)
       .order("station_number");
     if (stationError) {
@@ -235,6 +235,7 @@ export class SupabaseTerritoryRepository implements TerritoryRepository {
       return {
         id: station.id,
         stationNumber: station.station_number,
+        sex: station.sex,
         precinctName: precinct.name,
         observer: observerByStation.get(station.id) ?? null,
       };
