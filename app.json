@@ -11,6 +11,7 @@
       "icon": "./assets/images/icon.png"
     },
     "android": {
+      "package": "com.examen1.controlelectoral",
       "adaptiveIcon": {
         "backgroundColor": "#5B2384",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
