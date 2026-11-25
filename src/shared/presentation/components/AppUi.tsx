@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -20,6 +18,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
+import { withUniwind } from "uniwind";
 import { useController, type Control, type FieldValues, type Path } from "react-hook-form";
 import Animated, {
   FadeInDown,
@@ -46,20 +45,16 @@ import {
   type LucideIcon,
 } from "lucide-react-native";
 
-import {
-  colors,
-  fonts,
-  radii,
-  spacing,
-  surface,
-  typography,
-} from "../theme";
+import { colors } from "../theme";
 import { humanizeErrorMessage, type NoticeKind } from "../messages";
+import { LottieIcon, type LottieIconName } from "./LottieIcon";
 
+const StyledSafeAreaView = withUniwind(SafeAreaView);
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface ScreenProps {
   children: React.ReactNode;
+  footerBackground?: React.ReactNode;
   overlay?: React.ReactNode;
   onBack?: () => void;
   headerRight?: React.ReactNode;
@@ -69,20 +64,37 @@ interface ScreenProps {
 
 export function Screen({
   children,
+  footerBackground,
   overlay,
   onBack,
   headerRight,
   onRefresh,
   refreshing = false,
 }: ScreenProps) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <StyledSafeAreaView className={classes.safeArea}>
+      {footerBackground ? (
+        <View
+          pointerEvents="none"
+          style={{
+            bottom: -insets.bottom,
+            left: 0,
+            position: "absolute",
+            right: 0,
+            top: 0,
+          }}
+        >
+          {footerBackground}
+        </View>
+      ) : null}
       <KeyboardAvoidingView
-        style={styles.flex}
+        className={classes.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerClassName={classes.content}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           refreshControl={
@@ -98,11 +110,11 @@ export function Screen({
           showsVerticalScrollIndicator={false}
         >
           <AppMasthead headerRight={headerRight} onBack={onBack} />
-          <View style={styles.body}>{children}</View>
+          <View className={classes.body}>{children}</View>
         </ScrollView>
       </KeyboardAvoidingView>
       {overlay}
-    </SafeAreaView>
+    </StyledSafeAreaView>
   );
 }
 
@@ -114,21 +126,21 @@ function AppMasthead({
   headerRight?: React.ReactNode;
 }) {
   return (
-    <View style={styles.masthead}>
+    <View className={classes.masthead}>
       {onBack ? (
         <PressableScale
           accessibilityLabel="Volver"
           onPress={onBack}
-          style={styles.backButton}
+          className={classes.backButton}
         >
           <ArrowLeft color={colors.primaryDark} size={20} strokeWidth={2.3} />
         </PressableScale>
       ) : (
-        <View style={styles.brandMark}>
-          <Text style={styles.brandMarkText}>7</Text>
+        <View className={classes.brandMark}>
+          <Text className={classes.brandMarkText}>7</Text>
         </View>
       )}
-      <Text style={styles.brandName}>Control Electoral</Text>
+      <Text className={classes.brandName}>Control Electoral</Text>
       {headerRight}
     </View>
   );
@@ -142,14 +154,14 @@ interface PageTitleProps {
 
 export function PageTitle({ title, description, eyebrow }: PageTitleProps) {
   return (
-    <Animated.View entering={FadeInDown.duration(240)} style={styles.heading}>
+    <Animated.View entering={FadeInDown.duration(240)} className={classes.heading}>
       {eyebrow ? (
-        <Text style={styles.eyebrowText}>{eyebrow}</Text>
+        <Text className={classes.eyebrowText}>{eyebrow}</Text>
       ) : null}
-      <Text accessibilityRole="header" style={styles.title}>
+      <Text accessibilityRole="header" className={classes.title}>
         {title}
       </Text>
-      {description ? <Text style={styles.description}>{description}</Text> : null}
+      {description ? <Text className={classes.description}>{description}</Text> : null}
     </Animated.View>
   );
 }
@@ -191,14 +203,14 @@ export function FormField<T extends FieldValues>({
   const showPasswordToggle = Boolean(secureTextEntry && secureTextToggle);
 
   return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+    <View className={classes.field}>
+      <Text className={classes.label}>{label}</Text>
       <View
-        style={[
-          styles.inputWrap,
-          isFocused ? styles.inputFocused : null,
-          fieldState.error ? styles.inputError : null,
-        ]}
+        className={
+          isFocused || fieldState.error
+            ? `${classes.inputWrap} border-primary`
+            : classes.inputWrap
+        }
       >
         {Icon ? (
           <Icon color={colors.primary} size={19} strokeWidth={2} />
@@ -219,10 +231,11 @@ export function FormField<T extends FieldValues>({
           placeholderTextColor={colors.inkMuted}
           secureTextEntry={isSecure}
           selectionColor={colors.primary}
-          style={[
-            styles.input,
-            numeric ? styles.inputNumeric : null,
-          ]}
+          className={
+            numeric
+              ? `${classes.input} ${classes.inputNumeric}`
+              : classes.input
+          }
           textContentType={textContentType}
           value={typeof field.value === "string" ? field.value : ""}
         />
@@ -232,7 +245,7 @@ export function FormField<T extends FieldValues>({
             accessibilityRole="button"
             accessibilityState={{ expanded: !isSecure }}
             onPress={() => setIsSecure((current) => !current)}
-            style={styles.passwordToggle}
+            className={classes.passwordToggle}
           >
             {isSecure ? (
               <Eye color={colors.primary} size={20} strokeWidth={2} />
@@ -243,11 +256,11 @@ export function FormField<T extends FieldValues>({
         ) : null}
       </View>
       {fieldState.error?.message ? (
-        <Text accessibilityLiveRegion="polite" style={styles.fieldError}>
+        <Text accessibilityLiveRegion="polite" className={classes.fieldError}>
           {fieldState.error.message}
         </Text>
       ) : hint ? (
-        <Text style={styles.fieldHint}>{hint}</Text>
+        <Text className={classes.fieldHint}>{hint}</Text>
       ) : null}
     </View>
   );
@@ -258,6 +271,7 @@ interface PressableScaleProps {
   accessibilityHint?: string;
   accessibilityRole?: PressableProps["accessibilityRole"];
   accessibilityState?: PressableProps["accessibilityState"];
+  className?: string;
   disabled?: boolean;
   onPress: () => void;
   onPressIn?: () => void;
@@ -271,6 +285,7 @@ function PressableScale({
   accessibilityHint,
   accessibilityRole = "button",
   accessibilityState,
+  className,
   disabled = false,
   onPress,
   onPressIn,
@@ -289,6 +304,7 @@ function PressableScale({
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityRole}
       accessibilityState={accessibilityState}
+      className={className}
       disabled={disabled}
       onPress={onPress}
       onPressIn={() => {
@@ -324,11 +340,16 @@ export function PrimaryButton({
   return (
     <PressableScale
       accessibilityState={{ disabled }}
+      className={
+        disabled
+          ? `${classes.button} ${classes.buttonDisabled}`
+          : classes.button
+      }
       disabled={disabled}
       onPress={onPress}
-      style={[styles.button, disabled ? styles.buttonDisabled : null, style]}
+      style={style}
     >
-      <Text style={styles.buttonText}>{label}</Text>
+      <Text className={classes.buttonText}>{label}</Text>
       <ChevronRight
         color={colors.onPrimary}
         size={20}
@@ -347,15 +368,16 @@ export function SecondaryButton({
   return (
     <PressableScale
       accessibilityState={{ disabled }}
+      className={
+        disabled
+          ? `${classes.secondaryButton} ${classes.buttonDisabled}`
+          : classes.secondaryButton
+      }
       disabled={disabled}
       onPress={onPress}
-      style={[
-        styles.secondaryButton,
-        disabled ? styles.buttonDisabled : null,
-        style,
-      ]}
+      style={style}
     >
-      <Text style={styles.secondaryText}>{label}</Text>
+      <Text className={classes.secondaryText}>{label}</Text>
     </PressableScale>
   );
 }
@@ -371,12 +393,12 @@ interface FeedbackProps {
 
 const noticePalette: Record<
   NoticeKind,
-  { accent: string; icon: LucideIcon }
+  { accent: string; icon: LucideIcon; lottie?: LottieIconName }
 > = {
   info: { accent: colors.primarySoft, icon: Info },
-  success: { accent: colors.primary, icon: CircleCheck },
-  warning: { accent: colors.accentDeep, icon: TriangleAlert },
-  error: { accent: colors.primaryDark, icon: CircleAlert },
+  success: { accent: colors.primary, icon: CircleCheck, lottie: "success" },
+  warning: { accent: colors.accentDeep, icon: TriangleAlert, lottie: "alert" },
+  error: { accent: colors.primaryDark, icon: CircleAlert, lottie: "alert" },
 };
 
 const defaultNoticeTitles: Record<NoticeKind, string | undefined> = {
@@ -407,23 +429,28 @@ export function Feedback({
     <Animated.View
       accessibilityLiveRegion="polite"
       accessibilityRole={kind === "error" ? "alert" : undefined}
+      className={classes.notice}
       entering={FadeInDown.duration(180)}
-      style={[
-        styles.notice,
-        {
-          borderColor: palette.accent,
-          borderLeftColor: palette.accent,
-        },
-      ]}
+      style={{
+        borderColor: palette.accent,
+        borderLeftColor: palette.accent,
+      }}
     >
-      <View style={[styles.noticeMark, { backgroundColor: palette.accent }]}>
-        <NoticeIcon color={colors.onPrimary} size={17} strokeWidth={2.4} />
+      <View
+        className={classes.noticeMark}
+        style={{ backgroundColor: palette.lottie ? colors.surface : palette.accent }}
+      >
+        {palette.lottie ? (
+          <LottieIcon name={palette.lottie} size={28} />
+        ) : (
+          <NoticeIcon color={colors.onPrimary} size={17} strokeWidth={2.4} />
+        )}
       </View>
-      <View style={styles.noticeBody}>
+      <View className={classes.noticeBody}>
         {resolvedTitle ? (
-          <Text style={styles.noticeTitle}>{resolvedTitle}</Text>
+          <Text className={classes.noticeTitle}>{resolvedTitle}</Text>
         ) : null}
-        <Text style={styles.noticeMessage}>{resolvedMessage}</Text>
+        <Text className={classes.noticeMessage}>{resolvedMessage}</Text>
         {showTechnical ? (
           <TechnicalDetails text={resolvedTechnical as string} />
         ) : null}
@@ -431,9 +458,9 @@ export function Feedback({
           <Pressable
             accessibilityRole="button"
             onPress={onAction}
-            style={styles.noticeAction}
+            className={classes.noticeAction}
           >
-            <Text style={styles.noticeActionText}>{actionLabel}</Text>
+            <Text className={classes.noticeActionText}>{actionLabel}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -444,18 +471,18 @@ export function Feedback({
 function TechnicalDetails({ text }: { text: string }) {
   const [isOpen, setIsOpen] = useState(false);
   return (
-    <View style={styles.technical}>
+    <View className={classes.technical}>
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: isOpen }}
         onPress={() => setIsOpen((current) => !current)}
       >
-        <Text style={styles.technicalToggle}>
+        <Text className={classes.technicalToggle}>
           {isOpen ? "Ocultar detalle técnico" : "Ver detalle técnico"}
         </Text>
       </Pressable>
       {isOpen ? (
-        <Text selectable style={styles.technicalText}>
+        <Text selectable className={classes.technicalText}>
           {text}
         </Text>
       ) : null}
@@ -524,12 +551,12 @@ export function StatusChip({
   return (
     <View
       accessibilityLabel={label}
-      style={[
-        styles.chip,
-        { backgroundColor: palette.background, borderColor: palette.border },
-      ]}
+      className={classes.chip}
+      style={{ backgroundColor: palette.background, borderColor: palette.border }}
     >
-      <Text style={[styles.chipText, { color: palette.text }]}>{label}</Text>
+      <Text className={classes.chipText} style={{ color: palette.text }}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -543,11 +570,9 @@ interface CardProps {
 export function Card({ children, accent, style }: CardProps) {
   return (
     <View
+      className={classes.card}
       style={[
-        styles.card,
-        accent
-          ? { borderLeftColor: accent, borderLeftWidth: 3 }
-          : null,
+        accent ? { borderLeftColor: accent, borderLeftWidth: 3 } : null,
         style,
       ]}
     >
@@ -564,8 +589,8 @@ export function SectionTitle({
   aside?: React.ReactNode;
 }) {
   return (
-    <View style={styles.sectionRow}>
-      <Text accessibilityRole="header" style={styles.sectionTitle}>
+    <View className={classes.sectionRow}>
+      <Text accessibilityRole="header" className={classes.sectionTitle}>
         {children}
       </Text>
       {aside}
@@ -591,9 +616,11 @@ export function Metric({
           ? colors.primaryDark
           : colors.ink;
   return (
-    <View style={styles.metric}>
-      <Text style={[styles.metricValue, { color }]}>{value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
+    <View className={classes.metric}>
+      <Text className={classes.metricValue} style={{ color, fontVariant: ["tabular-nums"] }}>
+        {value}
+      </Text>
+      <Text className={classes.metricLabel}>{label}</Text>
     </View>
   );
 }
@@ -616,13 +643,11 @@ export function ProgressBar({
     <View
       accessibilityRole="progressbar"
       accessibilityValue={{ min: 0, max: 100, now: safeValue }}
-      style={styles.progressTrack}
+      className={classes.progressTrack}
     >
       <View
-        style={[
-          styles.progressFill,
-          { backgroundColor: color, width: `${safeValue}%` },
-        ]}
+        className={classes.progressFill}
+        style={{ backgroundColor: color, width: `${safeValue}%` }}
       />
     </View>
   );
@@ -639,14 +664,18 @@ export function VoteValue({
     return (
       <View
         accessibilityLabel="Sin dato, requiere revisión"
-        style={[styles.voteReview, size === "sm" ? styles.voteReviewSm : null]}
+        className={
+          size === "sm"
+            ? `${classes.voteReview} ${classes.voteReviewSm}`
+            : classes.voteReview
+        }
       >
         <TriangleAlert
           color={colors.accentDeep}
           size={13}
           strokeWidth={2.4}
         />
-        <Text style={styles.voteReviewText}>Revisión</Text>
+        <Text className={classes.voteReviewText}>Revisión</Text>
       </View>
     );
   }
@@ -654,15 +683,17 @@ export function VoteValue({
   return (
     <Text
       accessibilityLabel={value === 0 ? "Cero confirmado" : `${value} votos`}
-      style={[
-        styles.voteNumber,
+      className={
         size === "sm"
-          ? styles.voteNumberSm
+          ? `${classes.voteNumber} ${classes.voteNumberSm}`
           : size === "lg"
-            ? styles.voteNumberLg
-            : null,
-        { color: value === 0 ? colors.primaryDark : colors.ink },
-      ]}
+            ? `${classes.voteNumber} ${classes.voteNumberLg}`
+            : classes.voteNumber
+      }
+      style={{
+        color: value === 0 ? colors.primaryDark : colors.ink,
+        fontVariant: ["tabular-nums"],
+      }}
     >
       {value}
     </Text>
@@ -695,17 +726,19 @@ export function ActionCard({
       onPress={onPress}
       onPressIn={() => setIsPressed(true)}
       onPressOut={() => setIsPressed(false)}
-      style={[
-        styles.actionCard,
-        isActive ? styles.actionCardPrimary : styles.actionCardSecondary,
-      ]}
+      className={
+        isActive
+          ? `${classes.actionCard} ${classes.actionCardPrimary}`
+          : `${classes.actionCard} ${classes.actionCardSecondary}`
+      }
     >
       {Icon ? (
         <View
-          style={[
-            styles.actionIcon,
-            isActive ? styles.actionIconPrimary : null,
-          ]}
+          className={
+            isActive
+              ? `${classes.actionIcon} ${classes.actionIconPrimary}`
+              : classes.actionIcon
+          }
         >
           <Icon
             color={isActive ? colors.accent : colors.primary}
@@ -714,30 +747,33 @@ export function ActionCard({
           />
         </View>
       ) : null}
-      <View style={styles.actionCopy}>
+      <View className={classes.actionCopy}>
         {badge ? (
           <Text
-            style={[
-              styles.actionBadge,
-              isActive ? styles.actionBadgePrimary : null,
-            ]}
+            className={
+              isActive
+                ? `${classes.actionBadge} ${classes.actionBadgePrimary}`
+                : classes.actionBadge
+            }
           >
             {badge}
           </Text>
         ) : null}
         <Text
-          style={[
-            styles.actionTitle,
-            isActive ? styles.actionTitlePrimary : null,
-          ]}
+          className={
+            isActive
+              ? `${classes.actionTitle} ${classes.actionTitlePrimary}`
+              : classes.actionTitle
+          }
         >
           {title}
         </Text>
         <Text
-          style={[
-            styles.actionDescription,
-            isActive ? styles.actionDescriptionPrimary : null,
-          ]}
+          className={
+            isActive
+              ? `${classes.actionDescription} ${classes.actionDescriptionPrimary}`
+              : classes.actionDescription
+          }
         >
           {description}
         </Text>
@@ -767,7 +803,7 @@ export function SegmentedTabs<T extends string>({
   onChange: (next: T) => void;
 }) {
   return (
-    <View accessibilityRole="tablist" style={styles.segmentedTrack}>
+    <View accessibilityRole="tablist" className={classes.segmentedTrack}>
       {options.map((option) => {
         const active = option.key === value;
         return (
@@ -776,32 +812,36 @@ export function SegmentedTabs<T extends string>({
             accessibilityState={{ selected: active }}
             key={option.key}
             onPress={() => onChange(option.key)}
-            style={[
-              styles.segmentedTab,
-              active ? styles.segmentedTabActive : null,
-            ]}
+            className={
+              active
+                ? `${classes.segmentedTab} ${classes.segmentedTabActive}`
+                : classes.segmentedTab
+            }
           >
             <Text
               numberOfLines={1}
-              style={[
-                styles.segmentedText,
-                active ? styles.segmentedTextActive : null,
-              ]}
+              className={
+                active
+                  ? `${classes.segmentedText} ${classes.segmentedTextActive}`
+                  : classes.segmentedText
+              }
             >
               {option.label}
             </Text>
             {option.badge !== undefined ? (
               <View
-                style={[
-                  styles.segmentedBadge,
-                  active ? styles.segmentedBadgeActive : null,
-                ]}
+                className={
+                  active
+                    ? `${classes.segmentedBadge} ${classes.segmentedBadgeActive}`
+                    : classes.segmentedBadge
+                }
               >
                 <Text
-                  style={[
-                    styles.segmentedBadgeText,
-                    active ? styles.segmentedBadgeTextActive : null,
-                  ]}
+                  className={
+                    active
+                      ? `${classes.segmentedBadgeText} ${classes.segmentedBadgeTextActive}`
+                      : classes.segmentedBadgeText
+                  }
                 >
                   {option.badge}
                 </Text>
@@ -836,17 +876,19 @@ export function ActionTile({
       onPress={onPress}
       onPressIn={() => setIsPressed(true)}
       onPressOut={() => setIsPressed(false)}
-      style={[
-        styles.actionTile,
-        isActive ? styles.actionTilePrimary : styles.actionTileSecondary,
-      ]}
+      className={
+        isActive
+          ? `${classes.actionTile} ${classes.actionTilePrimary}`
+          : `${classes.actionTile} ${classes.actionTileSecondary}`
+      }
     >
-      <View style={styles.actionTileTop}>
+      <View className={classes.actionTileTop}>
         <View
-          style={[
-            styles.actionIcon,
-            isActive ? styles.actionIconPrimary : null,
-          ]}
+          className={
+            isActive
+              ? `${classes.actionIcon} ${classes.actionIconPrimary}`
+              : classes.actionIcon
+          }
         >
           <Icon
             color={isActive ? colors.accent : colors.primary}
@@ -860,21 +902,23 @@ export function ActionTile({
           strokeWidth={2.2}
         />
       </View>
-      <View style={styles.actionTileCopy}>
+      <View className={classes.actionTileCopy}>
         <Text
-          style={[
-            styles.actionTileTitle,
-            isActive ? styles.actionTitlePrimary : null,
-          ]}
+          className={
+            isActive
+              ? `${classes.actionTileTitle} ${classes.actionTitlePrimary}`
+              : classes.actionTileTitle
+          }
         >
           {title}
         </Text>
         <Text
           numberOfLines={2}
-          style={[
-            styles.actionTileSubtitle,
-            isActive ? styles.actionDescriptionPrimary : null,
-          ]}
+          className={
+            isActive
+              ? `${classes.actionTileSubtitle} ${classes.actionDescriptionPrimary}`
+              : classes.actionTileSubtitle
+          }
         >
           {subtitle}
         </Text>
@@ -891,15 +935,15 @@ export function EmptyState({
   message: string;
 }) {
   return (
-    <View style={styles.empty}>
-      <View style={styles.emptyMark}>
+    <View className={classes.empty}>
+      <View className={classes.emptyMark}>
         <Inbox color={colors.primary} size={20} strokeWidth={2} />
       </View>
-      <View style={styles.emptyCopy}>
-        <Text accessibilityRole="header" style={styles.emptyTitle}>
+      <View className={classes.emptyCopy}>
+        <Text accessibilityRole="header" className={classes.emptyTitle}>
           {title}
         </Text>
-        <Text style={styles.emptyMessage}>{message}</Text>
+        <Text className={classes.emptyMessage}>{message}</Text>
       </View>
     </View>
   );
@@ -907,9 +951,9 @@ export function EmptyState({
 
 export function LoadingBlock({ message }: { message: string }) {
   return (
-    <View style={styles.loadingBlock}>
-      <ActivityIndicator color={colors.red} />
-      <Text style={styles.loadingText}>{message}</Text>
+    <View className={classes.loadingBlock}>
+      <LottieIcon name="loading" size={112} />
+      <Text className={classes.loadingText}>{message}</Text>
     </View>
   );
 }
@@ -922,22 +966,32 @@ export function WorkflowStrip({
   steps: { label: string; state: WorkflowState }[];
 }) {
   return (
-    <View style={styles.workflow}>
+    <View className={classes.workflow}>
       {steps.map((step, index) => {
         const isDone = step.state === "done";
         const isCurrent = step.state === "current";
         const isError = step.state === "error";
+        const dotClass = isDone
+          ? `${classes.workflowDot} ${classes.workflowDotDone}`
+          : isCurrent
+            ? `${classes.workflowDot} ${classes.workflowDotCurrent}`
+            : isError
+              ? `${classes.workflowDot} ${classes.workflowDotError}`
+              : classes.workflowDot;
+        const lineClass = isDone
+          ? `${classes.workflowLine} ${classes.workflowLineDone}`
+          : isError
+            ? `${classes.workflowLine} ${classes.workflowLineError}`
+            : classes.workflowLine;
+        const labelClass = isCurrent
+          ? `${classes.workflowLabel} ${classes.workflowLabelCurrent}`
+          : isError
+            ? `${classes.workflowLabel} ${classes.workflowLabelError}`
+            : classes.workflowLabel;
         return (
-          <View key={step.label} style={styles.workflowItem}>
-            <View style={styles.workflowTop}>
-              <View
-                style={[
-                  styles.workflowDot,
-                  isDone ? styles.workflowDotDone : null,
-                  isCurrent ? styles.workflowDotCurrent : null,
-                  isError ? styles.workflowDotError : null,
-                ]}
-              >
+          <View key={step.label} className={classes.workflowItem}>
+            <View className={classes.workflowTop}>
+              <View className={dotClass}>
                 {isDone ? (
                   <Check color={colors.onPrimary} size={13} strokeWidth={3} />
                 ) : isError ? (
@@ -947,28 +1001,14 @@ export function WorkflowStrip({
                     strokeWidth={2.6}
                   />
                 ) : (
-                  <View style={styles.workflowDotInner} />
+                  <View className={classes.workflowDotInner} />
                 )}
               </View>
               {index < steps.length - 1 ? (
-                <View
-                  style={[
-                    styles.workflowLine,
-                    isDone ? styles.workflowLineDone : null,
-                    isError ? styles.workflowLineError : null,
-                  ]}
-                />
+                <View className={lineClass} />
               ) : null}
             </View>
-            <Text
-              style={[
-                styles.workflowLabel,
-                isCurrent ? styles.workflowLabelCurrent : null,
-                isError ? styles.workflowLabelError : null,
-              ]}
-            >
-              {step.label}
-            </Text>
+            <Text className={labelClass}>{step.label}</Text>
           </View>
         );
       })}
@@ -1042,8 +1082,8 @@ export function ConfirmActionSheet({
       snapPoints={snapPoints}
       enablePanDownToClose
       backdropComponent={renderBackdrop}
-      backgroundStyle={styles.sheetBackground}
-      handleIndicatorStyle={styles.sheetHandle}
+      backgroundStyle={{ backgroundColor: colors.surface }}
+      handleIndicatorStyle={{ backgroundColor: colors.inkMuted }}
       onClose={() => {
         const intent = intentRef.current;
         intentRef.current = null;
@@ -1053,727 +1093,186 @@ export function ConfirmActionSheet({
       }}
     >
       <BottomSheetScrollView
-        contentContainerStyle={[
-          styles.sheetContent,
-          { paddingBottom: spacing.xxxl + insets.bottom },
-        ]}
+        contentContainerStyle={{ paddingBottom: 32 + insets.bottom }}
       >
-        <View style={[styles.sheetAccent, { backgroundColor: accent }]} />
-        <Text style={styles.sheetTitle}>{title}</Text>
-        <Text style={styles.sheetMessage}>{message}</Text>
-        {children}
-        <PrimaryButton
-          label={confirmLabel}
-          onPress={() => {
-            intentRef.current = "confirm";
-            sheetRef.current?.close();
-            onConfirm();
-          }}
-        />
-        <SecondaryButton
-          label={cancelLabel}
-          onPress={() => {
-            intentRef.current = "cancel";
-            sheetRef.current?.close();
-            onCancel();
-          }}
-        />
+        <View className={classes.sheetContent}>
+          <View className={classes.sheetAccent} style={{ backgroundColor: accent }} />
+          <Text className={classes.sheetTitle}>{title}</Text>
+          <Text className={classes.sheetMessage}>{message}</Text>
+          {children}
+          <PrimaryButton
+            label={confirmLabel}
+            onPress={() => {
+              intentRef.current = "confirm";
+              sheetRef.current?.close();
+              onConfirm();
+            }}
+          />
+          <SecondaryButton
+            label={cancelLabel}
+            onPress={() => {
+              intentRef.current = "cancel";
+              sheetRef.current?.close();
+              onCancel();
+            }}
+          />
+        </View>
       </BottomSheetScrollView>
     </BottomSheet>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.navy,
-  },
-  flex: {
-    flex: 1,
-  },
-  topRule: {
-    backgroundColor: colors.red,
-    height: 3,
-  },
-  content: {
-    alignSelf: "center",
-    flexGrow: 1,
-    maxWidth: 620,
-    paddingBottom: spacing.xxl,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-    width: "100%",
-  },
-  body: {
-    flex: 1,
-    gap: spacing.lg,
-  },
-  masthead: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginBottom: spacing.xl,
-    marginTop: spacing.sm,
-  },
-  backButton: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    height: 40,
-    justifyContent: "center",
-    width: 40,
-  },
-  brandMark: {
-    alignItems: "center",
-    backgroundColor: colors.primary,
-    borderBottomColor: colors.accent,
-    borderBottomWidth: 3,
-    borderRadius: 10,
-    height: 38,
-    justifyContent: "center",
-    width: 38,
-  },
-  brandMarkText: {
-    color: colors.onPrimary,
-    fontFamily: fonts.display,
-    fontSize: 15,
-    fontWeight: "700",
-    letterSpacing: 0.4,
-  },
-  brandIdentity: {
-    marginLeft: 10,
-  },
-  brandName: {
-    color: colors.white,
-    fontFamily: fonts.display,
-    fontSize: 20,
-    fontWeight: "700",
-    letterSpacing: -0.2,
-  },
-  brandTagline: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 16,
-    marginTop: 1,
-  },
-  mastheadLine: {
-    backgroundColor: colors.navyBorder,
-    flex: 1,
-    height: 1,
-    marginLeft: 14,
-  },
-  heading: {
-    marginBottom: spacing.sm,
-  },
-  eyebrowRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 7,
-    marginBottom: spacing.sm,
-  },
-  eyebrowMark: {
-    backgroundColor: colors.red,
-    height: 2,
-    width: 16,
-  },
-  eyebrowText: {
-    color: colors.boneMuted,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-    letterSpacing: 0.5,
-  },
-  title: {
-    ...typography.title,
-  },
-  description: {
-    ...typography.subtitle,
-    marginTop: spacing.sm,
-  },
-  titleRule: {
-    backgroundColor: colors.red,
-    height: 3,
-    marginTop: spacing.lg,
-    width: 36,
-  },
-  field: {
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  fieldLabelRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  label: {
-    ...typography.label,
-    color: colors.bone,
-  },
-  numericHint: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 11,
-    letterSpacing: 0.2,
-  },
-  inputWrap: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: spacing.sm,
-    minHeight: 54,
-    paddingHorizontal: spacing.md,
-  },
-  input: {
-    color: colors.ink,
-    flex: 1,
-    fontFamily: fonts.body,
-    fontSize: 16,
-    minHeight: 54,
-    paddingVertical: spacing.sm,
-  },
-  inputNumeric: {
-    fontFamily: fonts.display,
-    fontSize: 22,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-    textAlign: "right",
-  },
-  passwordToggle: {
-    alignItems: "center",
-    height: 32,
-    justifyContent: "center",
-    width: 32,
-  },
-  inputFocused: {
-    borderColor: colors.red,
-  },
-  inputError: {
-    borderColor: colors.red,
-  },
-  fieldError: {
-    color: colors.primaryDark,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  fieldHint: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  button: {
-    alignItems: "center",
-    backgroundColor: colors.red,
-    borderRadius: radii.md,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: spacing.sm,
-    minHeight: 54,
-    paddingHorizontal: spacing.lg,
-  },
-  buttonDisabled: {
-    opacity: 0.45,
-  },
-  buttonText: {
-    ...typography.button,
-    flex: 1,
-  },
-  buttonArrow: {
-    color: colors.onPrimary,
-    fontFamily: fonts.display,
-    fontSize: 26,
-    lineHeight: 26,
-  },
-  secondaryButton: {
-    alignItems: "center",
-    borderColor: colors.navyBorder,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    justifyContent: "center",
-    marginTop: spacing.sm,
-    minHeight: 50,
-    paddingHorizontal: spacing.md,
-  },
-  secondaryText: {
-    color: colors.bone,
-    fontFamily: fonts.bodyBold,
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  notice: {
-    backgroundColor: colors.navyDeep,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderLeftWidth: 3,
-    flexDirection: "row",
-    gap: spacing.md,
-    padding: spacing.md,
-  },
-  noticeMark: {
-    alignItems: "center",
-    borderRadius: radii.sm,
-    height: 28,
-    justifyContent: "center",
-    marginTop: 1,
-    width: 28,
-  },
-  noticeMarkText: {
-    fontFamily: fonts.display,
-    fontSize: 17,
-    fontWeight: "700",
-    lineHeight: 20,
-  },
-  noticeBody: {
-    flex: 1,
-    gap: 3,
-  },
-  noticeTitle: {
-    color: colors.white,
-    fontFamily: fonts.bodyBold,
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  noticeMessage: {
-    color: colors.bone,
-    fontFamily: fonts.body,
-    fontSize: 15,
-    lineHeight: 21,
-  },
-  noticeAction: {
-    alignSelf: "flex-start",
-    marginTop: 4,
-    paddingVertical: 2,
-  },
-  noticeActionText: {
-    color: colors.red,
-    fontFamily: fonts.bodyBold,
-    fontSize: 13,
-  },
-  technical: {
-    gap: 4,
-    marginTop: spacing.xs,
-  },
-  technicalToggle: {
-    color: colors.boneMuted,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-    textDecorationLine: "underline",
-  },
-  technicalText: {
-    backgroundColor: colors.navy,
-    borderRadius: radii.sm,
-    color: colors.boneMuted,
-    fontFamily: fonts.mono,
-    fontSize: 12,
-    lineHeight: 17,
-    padding: spacing.sm,
-  },
-  chip: {
-    alignItems: "center",
-    alignSelf: "flex-start",
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  chipDot: {
-    borderRadius: 3,
-    height: 7,
-    width: 7,
-  },
-  chipText: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  card: {
-    ...surface,
-    padding: spacing.lg,
-  },
-  sectionRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  sectionTitle: {
-    ...typography.section,
-  },
-  sectionLine: {
-    backgroundColor: colors.navyBorder,
-    flex: 1,
-    height: 1,
-  },
-  metric: {
-    gap: 2,
-    minWidth: 0,
-  },
-  metricValue: {
-    ...typography.numeric,
-  },
-  metricLabel: {
-    ...typography.small,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  progressTrack: {
-    backgroundColor: colors.navyBorder,
-    borderRadius: radii.pill,
-    height: 8,
-    overflow: "hidden",
-    width: "100%",
-  },
-  progressFill: {
-    borderRadius: radii.pill,
-    height: "100%",
-  },
-  voteReview: {
-    alignItems: "center",
-    alignSelf: "flex-start",
-    backgroundColor: colors.amberSoft,
-    borderColor: colors.amber,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-  voteReviewSm: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  voteReviewDot: {
-    backgroundColor: colors.amber,
-    borderRadius: 3,
-    height: 6,
-    width: 6,
-  },
-  voteReviewText: {
-    color: colors.accentDeep,
-    fontFamily: fonts.bodyBold,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  voteNumber: {
-    color: colors.white,
-    fontFamily: fonts.display,
-    fontSize: 24,
-    fontWeight: "700",
-    fontVariant: ["tabular-nums"],
-    lineHeight: 28,
-  },
-  voteNumberSm: {
-    fontSize: 19,
-    lineHeight: 23,
-  },
-  voteNumberLg: {
-    fontSize: 30,
-    lineHeight: 34,
-  },
-  actionCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: spacing.md,
-    justifyContent: "space-between",
-    minHeight: 92,
-    padding: spacing.lg,
-  },
-  actionCardPrimary: {
-    backgroundColor: colors.red,
-    borderColor: colors.red,
-  },
-  actionCardSecondary: {
-    backgroundColor: colors.navyDeep,
-    borderColor: colors.navyBorder,
-  },
-  actionIcon: {
-    alignItems: "center",
-    backgroundColor: colors.primarySoftBg,
-    borderRadius: radii.md,
-    height: 48,
-    justifyContent: "center",
-    width: 48,
-  },
-  actionIconPrimary: {
-    backgroundColor: "rgba(255, 255, 255, 0.16)",
-  },
-  actionTile: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    flex: 1,
-    gap: spacing.lg,
-    justifyContent: "space-between",
-    minHeight: 162,
-    minWidth: "46%",
-    padding: spacing.lg,
-  },
-  actionTilePrimary: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  actionTileSecondary: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-  },
-  actionTileTop: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  actionTileCopy: {
-    gap: 4,
-  },
-  actionTileTitle: {
-    color: colors.ink,
-    fontFamily: fonts.bodyBold,
-    fontSize: 18,
-    lineHeight: 23,
-  },
-  actionTileSubtitle: {
-    color: colors.inkMuted,
-    fontFamily: fonts.body,
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  segmentedTrack: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 4,
-    padding: 4,
-  },
-  segmentedTab: {
-    alignItems: "center",
-    borderRadius: radii.sm,
-    flex: 1,
-    flexDirection: "row",
-    gap: 6,
-    justifyContent: "center",
-    minHeight: 40,
-    paddingHorizontal: spacing.sm,
-  },
-  segmentedTabActive: {
-    backgroundColor: colors.primary,
-  },
-  segmentedText: {
-    color: colors.inkMuted,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-  },
-  segmentedTextActive: {
-    color: colors.onPrimary,
-    fontFamily: fonts.bodyBold,
-  },
-  segmentedBadge: {
-    backgroundColor: colors.primarySoftBg,
-    borderRadius: radii.pill,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-  },
-  segmentedBadgeActive: {
-    backgroundColor: colors.accent,
-  },
-  segmentedBadgeText: {
-    color: colors.primary,
-    fontFamily: fonts.bodyBold,
-    fontSize: 11,
-  },
-  segmentedBadgeTextActive: {
-    color: colors.primaryDark,
-  },
-  actionCopy: {
-    flex: 1,
-    gap: 3,
-  },
-  actionBadge: {
-    color: colors.boneMuted,
-    fontFamily: fonts.bodyBold,
-    fontSize: 11,
-    letterSpacing: 0.8,
-    marginBottom: 2,
-  },
-  actionBadgePrimary: {
-    color: colors.bone,
-  },
-  actionTitle: {
-    color: colors.white,
-    fontFamily: fonts.bodyBold,
-    fontSize: 18,
-    lineHeight: 23,
-  },
-  actionTitlePrimary: {
-    color: colors.onPrimary,
-  },
-  actionDescription: {
-    color: colors.inkMuted,
-    fontFamily: fonts.body,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  actionDescriptionPrimary: {
-    color: colors.onPrimaryMuted,
-  },
-  actionArrow: {
-    alignSelf: "center",
-    color: colors.bone,
-    fontFamily: fonts.display,
-    fontSize: 30,
-    lineHeight: 30,
-  },
-  actionArrowPrimary: {
-    color: colors.onPrimary,
-  },
-  empty: {
-    alignItems: "center",
-    borderColor: colors.navyBorder,
-    borderRadius: radii.lg,
-    borderStyle: "dashed",
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: spacing.md,
-    padding: spacing.lg,
-  },
-  emptyMark: {
-    alignItems: "center",
-    backgroundColor: colors.primarySoftBg,
-    borderRadius: radii.md,
-    height: 40,
-    justifyContent: "center",
-    width: 40,
-  },
-  emptyCopy: {
-    flex: 1,
-    gap: 3,
-  },
-  emptyTitle: {
-    color: colors.white,
-    fontFamily: fonts.bodyBold,
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  emptyMessage: {
-    ...typography.small,
-  },
-  loadingBlock: {
-    alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.xxxl,
-  },
-  loadingText: {
-    ...typography.small,
-    textAlign: "center",
-  },
-  workflow: {
-    flexDirection: "row",
-  },
-  workflowItem: {
-    flex: 1,
-    paddingRight: 3,
-  },
-  workflowTop: {
-    alignItems: "center",
-    flexDirection: "row",
-  },
-  workflowDot: {
-    alignItems: "center",
-    backgroundColor: "transparent",
-    borderColor: colors.navyBorder,
-    borderRadius: 11,
-    borderWidth: 1,
-    height: 22,
-    justifyContent: "center",
-    width: 22,
-  },
-  workflowDotDone: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  workflowDotCurrent: {
-    backgroundColor: colors.accentDeep,
-    borderColor: colors.accentDeep,
-  },
-  workflowDotError: {
-    backgroundColor: colors.primaryDark,
-    borderColor: colors.primaryDark,
-  },
-  workflowDotInner: {
-    backgroundColor: colors.inkMuted,
-    borderRadius: 3,
-    height: 6,
-    width: 6,
-  },
-  workflowDotText: {
-    color: colors.boneMuted,
-    fontFamily: fonts.bodyBold,
-    fontSize: 11,
-    lineHeight: 14,
-  },
-  workflowDotTextDone: {
-    color: colors.onPrimary,
-  },
-  workflowLine: {
-    backgroundColor: colors.navyBorder,
-    flex: 1,
-    height: 1,
-    marginHorizontal: 4,
-  },
-  workflowLineDone: {
-    backgroundColor: colors.primary,
-  },
-  workflowLineError: {
-    backgroundColor: colors.primaryDark,
-  },
-  workflowLabel: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 16,
-    marginTop: 5,
-  },
-  workflowLabelCurrent: {
-    color: colors.accentDeep,
-    fontFamily: fonts.bodyBold,
-  },
-  workflowLabelError: {
-    color: colors.primaryDark,
-    fontFamily: fonts.bodyBold,
-  },
-  sheetBackground: {
-    backgroundColor: colors.navyDeep,
-  },
-  sheetHandle: {
-    backgroundColor: colors.boneMuted,
-  },
-  sheetContent: {
-    gap: spacing.sm,
-    paddingBottom: spacing.xxxl,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-  },
-  sheetAccent: {
-    borderRadius: 2,
-    height: 4,
-    marginBottom: spacing.xs,
-    width: 42,
-  },
-  sheetTitle: {
-    ...typography.title,
-    fontSize: 24,
-    lineHeight: 28,
-  },
-  sheetMessage: {
-    ...typography.body,
-    marginBottom: spacing.sm,
-  },
-});
+const classes = {
+  safeArea: "flex-1",
+  flex: "flex-1",
+  topRule: "h-[3px] bg-primary",
+  content: "w-full max-w-[620px] grow self-center px-5 pb-6 pt-4",
+  body: "flex-1 gap-4",
+  masthead: "mb-5 mt-2 flex-row items-center gap-2",
+  backButton:
+    "h-10 w-10 items-center justify-center rounded-md border border-border bg-surface",
+  brandMark:
+    "h-[38px] w-[38px] items-center justify-center rounded-[10px] border-b-[3px] border-b-accent bg-primary",
+  brandMarkText:
+    "font-display text-[15px] font-bold tracking-[0.4px] text-on-primary",
+  brandIdentity: "ml-[10px]",
+  brandName:
+    "font-display text-[20px] font-bold tracking-[-0.2px] text-primary-dark",
+  brandTagline: "mt-[1px] font-body text-[12px] leading-4 text-ink-muted",
+  mastheadLine: "ml-[14px] h-px flex-1 bg-border",
+  heading: "mb-2",
+  eyebrowRow: "mb-2 flex-row items-center gap-[7px]",
+  eyebrowMark: "h-[2px] w-4 bg-primary",
+  eyebrowText:
+    "font-body-medium text-[13px] tracking-[0.5px] text-ink-muted",
+  title: "font-display text-title font-bold text-primary-dark",
+  description: "mt-2 font-body text-subtitle text-ink-muted",
+  titleRule: "mt-4 h-[3px] w-9 bg-primary",
+  field: "mb-1 gap-1",
+  fieldLabelRow: "flex-row items-center justify-between",
+  label: "font-body-medium text-label text-primary-dark",
+  numericHint:
+    "font-body text-[11px] tracking-[0.2px] text-ink-muted",
+  inputWrap:
+    "min-h-[54px] flex-row items-center gap-2 rounded-md border border-border bg-surface px-3",
+  input: "min-h-[54px] flex-1 py-2 font-body text-[16px] text-ink",
+  inputNumeric:
+    "text-right font-display text-[22px] font-bold tracking-[0.3px]",
+  passwordToggle: "h-8 w-8 items-center justify-center",
+  inputFocused: "border-primary",
+  inputError: "border-primary",
+  fieldError:
+    "font-body-medium text-[14px] leading-[19px] text-primary-dark",
+  fieldHint: "font-body text-[13px] leading-[18px] text-ink-muted",
+  button:
+    "mt-2 min-h-[54px] flex-row items-center justify-between rounded-md bg-primary px-4",
+  buttonDisabled: "opacity-[0.45]",
+  buttonText: "flex-1 font-body-bold text-button text-on-primary",
+  buttonArrow:
+    "font-display text-[26px] leading-[26px] text-on-primary",
+  secondaryButton:
+    "mt-2 min-h-[50px] items-center justify-center rounded-md border border-border px-3",
+  secondaryText:
+    "font-body-bold text-[15px] leading-5 text-primary-dark",
+  notice: "flex-row gap-3 rounded-md border bg-surface p-3",
+  noticeMark: "mt-[1px] h-7 w-7 items-center justify-center rounded-sm",
+  noticeMarkText: "font-display text-[17px] font-bold leading-5",
+  noticeBody: "flex-1 gap-[3px]",
+  noticeTitle: "font-body-bold text-[15px] leading-5 text-primary-dark",
+  noticeMessage: "font-body text-[15px] leading-[21px] text-ink",
+  noticeAction: "mt-1 self-start py-[2px]",
+  noticeActionText: "font-body-bold text-[13px] text-primary",
+  technical: "mt-1 gap-1",
+  technicalToggle:
+    "font-body-medium text-[13px] text-ink-muted underline",
+  technicalText:
+    "rounded-sm bg-background p-2 font-mono text-[12px] leading-[17px] text-ink-muted",
+  chip: "flex-row items-center self-start gap-[6px] rounded-full border px-[10px] py-[6px]",
+  chipDot: "h-[7px] w-[7px] rounded-[3px]",
+  chipText: "font-body-medium text-[12px] leading-4",
+  card: "rounded-lg border border-border bg-surface p-4",
+  sectionRow: "flex-row items-center gap-2",
+  sectionTitle: "font-body-bold text-section text-primary",
+  sectionLine: "h-px flex-1 bg-border",
+  metric: "min-w-0 gap-[2px]",
+  metricValue: "font-display text-numeric font-bold text-primary-dark",
+  metricLabel: "font-body text-[13px] leading-[18px] text-ink-muted",
+  progressTrack: "h-2 w-full overflow-hidden rounded-full bg-border",
+  progressFill: "h-full rounded-full",
+  voteReview:
+    "flex-row items-center self-start gap-[5px] rounded-full border border-accent-deep bg-accent-soft px-[9px] py-1",
+  voteReviewSm: "px-[7px] py-[3px]",
+  voteReviewDot: "h-[6px] w-[6px] rounded-[3px] bg-accent-deep",
+  voteReviewText: "font-body-bold text-[12px] leading-4 text-accent-deep",
+  voteNumber: "font-display text-[24px] font-bold leading-7",
+  voteNumberSm: "text-[19px] leading-[23px]",
+  voteNumberLg: "text-[30px] leading-[34px]",
+  actionCard:
+    "min-h-[92px] flex-row items-center justify-between gap-3 rounded-lg border p-4",
+  actionCardPrimary: "border-primary bg-primary",
+  actionCardSecondary: "border-border bg-surface",
+  actionIcon:
+    "h-12 w-12 items-center justify-center rounded-md bg-primary-soft-bg",
+  actionIconPrimary: "bg-[rgba(255,255,255,0.16)]",
+  actionTile:
+    "min-h-[162px] min-w-[46%] flex-1 justify-between gap-4 rounded-lg border p-4",
+  actionTilePrimary: "border-primary bg-primary",
+  actionTileSecondary: "border-border bg-surface",
+  actionTileTop: "flex-row items-center justify-between",
+  actionTileCopy: "gap-1",
+  actionTileTitle: "font-body-bold text-[18px] leading-[23px] text-ink",
+  actionTileSubtitle: "font-body text-[14px] leading-[19px] text-ink-muted",
+  segmentedTrack:
+    "flex-row gap-1 rounded-md border border-border bg-surface p-1",
+  segmentedTab:
+    "min-h-10 flex-1 flex-row items-center justify-center gap-[6px] rounded-sm px-2",
+  segmentedTabActive: "bg-primary",
+  segmentedText: "font-body-medium text-[13px] text-ink-muted",
+  segmentedTextActive: "font-body-bold text-on-primary",
+  segmentedBadge: "rounded-full bg-primary-soft-bg px-[6px] py-[1px]",
+  segmentedBadgeActive: "bg-accent",
+  segmentedBadgeText: "font-body-bold text-[11px] text-primary",
+  segmentedBadgeTextActive: "text-primary-dark",
+  actionCopy: "flex-1 gap-[3px]",
+  actionBadge:
+    "mb-[2px] font-body-bold text-[11px] tracking-[0.8px] text-ink-muted",
+  actionBadgePrimary: "text-primary-dark",
+  actionTitle: "font-body-bold text-[18px] leading-[23px] text-primary-dark",
+  actionTitlePrimary: "text-on-primary",
+  actionDescription: "font-body text-[14px] leading-5 text-ink-muted",
+  actionDescriptionPrimary: "text-on-primary-muted",
+  actionArrow:
+    "self-center font-display text-[30px] leading-[30px] text-primary-dark",
+  actionArrowPrimary: "text-on-primary",
+  empty: "flex-row items-center gap-3 rounded-lg border border-dashed border-border p-4",
+  emptyMark: "h-10 w-10 items-center justify-center rounded-md bg-primary-soft-bg",
+  emptyCopy: "flex-1 gap-[3px]",
+  emptyTitle: "font-body-bold text-[15px] leading-5 text-primary-dark",
+  emptyMessage: "font-body text-[13px] leading-[18px] text-ink-muted",
+  loadingBlock: "items-center gap-3 py-8",
+  loadingText: "text-center font-body text-[13px] leading-[18px] text-ink-muted",
+  workflow: "flex-row",
+  workflowItem: "flex-1 pr-[3px]",
+  workflowTop: "flex-row items-center",
+  workflowDot:
+    "h-[22px] w-[22px] items-center justify-center rounded-[11px] border border-border bg-transparent",
+  workflowDotDone: "border-primary bg-primary",
+  workflowDotCurrent: "border-accent-deep bg-accent-deep",
+  workflowDotError: "border-primary-dark bg-primary-dark",
+  workflowDotInner: "h-[6px] w-[6px] rounded-[3px] bg-ink-muted",
+  workflowDotText: "font-body-bold text-[11px] leading-[14px] text-ink-muted",
+  workflowDotTextDone: "text-on-primary",
+  workflowLine: "mx-1 h-px flex-1 bg-border",
+  workflowLineDone: "bg-primary",
+  workflowLineError: "bg-primary-dark",
+  workflowLabel: "mt-[5px] font-body text-[12px] leading-4 text-ink-muted",
+  workflowLabelCurrent: "font-body-bold text-accent-deep",
+  workflowLabelError: "font-body-bold text-primary-dark",
+  sheetBackground: "bg-surface",
+  sheetHandle: "bg-ink-muted",
+  sheetContent: "gap-2 px-5 pb-8 pt-3",
+  sheetAccent: "mb-1 h-1 w-[42px] rounded-[2px]",
+  sheetTitle:
+    "font-display text-[24px] font-bold leading-7 tracking-[-0.2px] text-primary-dark",
+  sheetMessage: "mb-2 font-body text-[15px] leading-[21px] text-ink",
+} as const;

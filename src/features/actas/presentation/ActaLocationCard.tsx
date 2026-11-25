@@ -1,10 +1,10 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { MapPin, TriangleAlert } from "lucide-react-native";
 
 import { StatusChip } from "../../../shared/presentation/components/AppUi";
 import { GeoMap } from "../../../shared/presentation/components/GeoMap";
 import type { RelativeMapMarker } from "../../../shared/presentation/components/RelativeMap";
-import { colors, fonts, radii, spacing } from "../../../shared/presentation/theme";
+import { colors } from "../../../shared/presentation/theme";
 import type { Location } from "../domain/acta";
 
 interface Props {
@@ -63,19 +63,19 @@ export function ActaLocationCard({
     : [];
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerTitleRow}>
+    <View className={classes.container}>
+      <View className={classes.header}>
+        <View className={classes.headerTitleRow}>
           <MapPin
             color={location ? colors.primary : colors.accentDeep}
             size={18}
             strokeWidth={2.2}
           />
-          <View style={styles.headerCopy}>
-            <Text style={styles.title}>
+          <View className={classes.headerCopy}>
+            <Text className={classes.title}>
               {location ? title : "Sin ubicación registrada"}
             </Text>
-            <Text style={styles.meta}>{formatCapturedAt(capturedAt)}</Text>
+            <Text className={classes.meta}>{formatCapturedAt(capturedAt)}</Text>
           </View>
         </View>
         <StatusChip
@@ -99,43 +99,41 @@ export function ActaLocationCard({
             height={156}
             markers={markers}
           />
-          <View style={styles.mapLegend}>
-            <View style={styles.legendItem}>
+          <View className={classes.mapLegend}>
+            <View className={classes.legendItem}>
               <View
-                style={[
-                  styles.legendDot,
-                  {
-                    backgroundColor:
-                      warningMeters !== null
-                        ? colors.accentDeep
-                        : colors.primary,
-                  },
-                ]}
+                className={classes.legendDot}
+                style={{
+                  backgroundColor:
+                    warningMeters !== null
+                      ? colors.accentDeep
+                      : colors.primary,
+                }}
               />
-              <Text style={styles.legendText}>Captura</Text>
+              <Text className={classes.legendText}>Captura</Text>
             </View>
             {hasSeparateReference ? (
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, styles.legendHollow]} />
-                <Text style={styles.legendText}>Referencia del recinto</Text>
+              <View className={classes.legendItem}>
+                <View className={`${classes.legendDot} ${classes.legendHollow}`} />
+                <Text className={classes.legendText}>Referencia del recinto</Text>
               </View>
             ) : null}
           </View>
-          <Text style={styles.mapNote}>
+          <Text className={classes.mapNote}>
             Mapa de OpenStreetMap. Sin conexión se muestra una vista relativa
             sin calles.
           </Text>
         </>
       ) : (
-        <Text style={styles.empty}>
+        <Text className={classes.empty}>
           No se registró la ubicación en el mapa para esta acta.
         </Text>
       )}
 
       {warningMeters !== null ? (
-        <View style={styles.warning}>
+        <View className={classes.warning}>
           <TriangleAlert color={colors.accentDeep} size={16} strokeWidth={2.2} />
-          <Text style={styles.warningText}>
+          <Text className={classes.warningText}>
             Tomada a {Math.round(warningMeters)} m de la referencia del recinto.
           </Text>
         </View>
@@ -144,91 +142,20 @@ export function ActaLocationCard({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: spacing.sm,
-  },
-  header: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.sm,
-    justifyContent: "space-between",
-  },
-  headerTitleRow: {
-    alignItems: "center",
-    flex: 1,
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  headerCopy: {
-    flex: 1,
-    gap: 1,
-  },
-  title: {
-    color: colors.ink,
-    fontFamily: fonts.bodyBold,
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  meta: {
-    color: colors.inkMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  mapLegend: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
-  },
-  legendItem: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 6,
-  },
-  legendDot: {
-    borderRadius: 4,
-    height: 9,
-    width: 9,
-  },
-  legendHollow: {
-    backgroundColor: colors.background,
-    borderColor: colors.primary,
-    borderWidth: 2,
-  },
-  legendText: {
-    color: colors.inkMuted,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 12,
-  },
-  mapNote: {
-    color: colors.inkMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  empty: {
-    color: colors.inkMuted,
-    fontFamily: fonts.body,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  warning: {
-    alignItems: "center",
-    backgroundColor: colors.accentSoft,
-    borderColor: colors.accentDeep,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  warningText: {
-    color: colors.ink,
-    flex: 1,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-});
+const classes = {
+  container: "gap-2",
+  header: "flex-row items-center justify-between gap-2",
+  headerTitleRow: "flex-1 flex-row items-center gap-2",
+  headerCopy: "flex-1 gap-[1px]",
+  title: "font-body-bold text-[15px] leading-5 text-ink",
+  meta: "font-body text-[12px] leading-4 text-ink-muted",
+  mapLegend: "flex-row flex-wrap gap-3",
+  legendItem: "flex-row items-center gap-[6px]",
+  legendDot: "h-[9px] w-[9px] rounded-[4px]",
+  legendHollow: "border-2 border-primary bg-background",
+  legendText: "font-body-medium text-[12px] text-ink-muted",
+  mapNote: "font-body text-[12px] leading-[17px] text-ink-muted",
+  empty: "font-body text-[14px] leading-5 text-ink-muted",
+  warning: "flex-row items-center gap-2 rounded-md border border-accent-deep bg-accent-soft px-3 py-2",
+  warningText: "flex-1 font-body-medium text-small text-ink",
+} as const;

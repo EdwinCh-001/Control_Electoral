@@ -2,12 +2,11 @@ import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../../../../app/navigationTypes";
 import { useAppSelector } from "../../../../app/store";
-import { colors, fonts, radii, spacing } from "../../../../shared/presentation/theme";
 import type {
   AppRole,
   AssignablePrecinct,
@@ -242,38 +241,29 @@ export function ManageAccountsScreen({ navigation }: Props) {
               message="Si todos los recintos ya tienen coordinador, no se puede crear otra cuenta de coordinador."
             />
           ) : (
-            <View style={styles.options}>
+            <View className={classes.options}>
               {precincts.map((precinct) => {
                 const isSelected = selectedPrecinctId === precinct.id;
                 return (
                   <Pressable
                     accessibilityRole="radio"
                     accessibilityState={{ checked: isSelected }}
+                    className={`${classes.precinctOption} ${isSelected ? classes.precinctSelected : ""}`}
                     key={precinct.id}
                     onPress={() => setSelectedPrecinctId(precinct.id)}
-                    style={[
-                      styles.precinctOption,
-                      isSelected ? styles.precinctSelected : null,
-                    ]}
                   >
                     <View
-                      style={[
-                        styles.optionDot,
-                        isSelected ? styles.optionDotSelected : null,
-                      ]}
+                      className={`${classes.optionDot} ${isSelected ? classes.optionDotSelected : ""}`}
                     >
-                      {isSelected ? <View style={styles.optionDotFill} /> : null}
+                      {isSelected ? <View className={classes.optionDotFill} /> : null}
                     </View>
-                    <View style={styles.optionCopy}>
+                    <View className={classes.optionCopy}>
                       <Text
-                        style={[
-                          styles.precinctName,
-                          isSelected ? styles.precinctNameSelected : null,
-                        ]}
+                        className={`${classes.precinctName} ${isSelected ? classes.precinctNameSelected : ""}`}
                       >
                         {precinct.name}
                       </Text>
-                      <Text style={styles.precinctDetail}>
+                      <Text className={classes.precinctDetail}>
                         {precinct.parish} · {precinct.cantonName}
                       </Text>
                     </View>
@@ -286,30 +276,30 @@ export function ManageAccountsScreen({ navigation }: Props) {
       )}
 
       {createdAccount ? (
-        <View style={styles.resultBanner}>
-          <View style={styles.resultHeader}>
-            <View style={styles.resultCopy}>
-              <Text style={styles.resultEyebrow}>Cuenta creada</Text>
-              <Text style={styles.resultTitle}>{createdAccount.email}</Text>
+        <View className={classes.resultBanner}>
+          <View className={classes.resultHeader}>
+            <View className={classes.resultCopy}>
+              <Text className={classes.resultEyebrow}>Cuenta creada</Text>
+              <Text className={classes.resultTitle}>{createdAccount.email}</Text>
             </View>
             <StatusChip label="Lista" tone="success" />
           </View>
-          <View style={styles.resultRow}>
-            <Text style={styles.resultLabel}>Rol</Text>
-            <Text style={styles.resultValue}>
+          <View className={classes.resultRow}>
+            <Text className={classes.resultLabel}>Rol</Text>
+            <Text className={classes.resultValue}>
               {roleLabels[createdAccount.role]}
             </Text>
           </View>
           {createdPrecinctName ? (
-            <View style={styles.resultRow}>
-              <Text style={styles.resultLabel}>Recinto</Text>
-              <Text style={styles.resultValue}>{createdPrecinctName}</Text>
+            <View className={classes.resultRow}>
+              <Text className={classes.resultLabel}>Recinto</Text>
+              <Text className={classes.resultValue}>{createdPrecinctName}</Text>
             </View>
           ) : null}
-          <Text style={styles.passwordLabel}>
+          <Text className={classes.passwordLabel}>
             Contraseña temporal · se muestra una sola vez
           </Text>
-          <Text selectable style={styles.password}>
+          <Text selectable className={classes.password}>
             {createdAccount.temporaryPassword}
           </Text>
           <Feedback
@@ -344,131 +334,30 @@ export function ManageAccountsScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  options: {
-    gap: spacing.sm,
-  },
-  precinctOption: {
-    alignItems: "center",
-    backgroundColor: colors.navyDeep,
-    borderColor: colors.navyBorder,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: spacing.sm,
-    padding: spacing.md,
-  },
-  precinctSelected: {
-    backgroundColor: colors.redSoft,
-    borderColor: colors.red,
-  },
-  optionDot: {
-    alignItems: "center",
-    borderColor: colors.boneMuted,
-    borderRadius: 8,
-    borderWidth: 1,
-    height: 16,
-    justifyContent: "center",
-    width: 16,
-  },
-  optionDotSelected: {
-    borderColor: colors.red,
-  },
-  optionDotFill: {
-    backgroundColor: colors.red,
-    borderRadius: 4,
-    height: 8,
-    width: 8,
-  },
-  optionCopy: {
-    flex: 1,
-    gap: 1,
-  },
-  precinctName: {
-    color: colors.bone,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  precinctNameSelected: {
-    color: colors.white,
-  },
-  precinctDetail: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  resultBanner: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderLeftColor: colors.primary,
-    borderLeftWidth: 3,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    gap: spacing.sm,
-    padding: spacing.lg,
-  },
-  resultHeader: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: spacing.sm,
-    justifyContent: "space-between",
-  },
-  resultCopy: {
-    flex: 1,
-    gap: 1,
-  },
-  resultEyebrow: {
-    color: colors.boneMuted,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 12,
-    letterSpacing: 0.4,
-  },
-  resultTitle: {
-    color: colors.white,
-    fontFamily: fonts.bodyBold,
-    fontSize: 16,
-    lineHeight: 21,
-  },
-  resultRow: {
-    alignItems: "center",
-    borderTopColor: colors.navyBorder,
-    borderTopWidth: 1,
-    flexDirection: "row",
-    gap: spacing.sm,
-    justifyContent: "space-between",
-    paddingTop: spacing.sm,
-  },
-  resultLabel: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-  },
-  resultValue: {
-    color: colors.bone,
-    flexShrink: 1,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-    textAlign: "right",
-  },
-  passwordLabel: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 15,
-    marginTop: spacing.xs,
-  },
-  password: {
-    backgroundColor: colors.navy,
-    borderColor: colors.emerald,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    color: colors.white,
-    fontFamily: fonts.mono,
-    fontSize: 18,
-    letterSpacing: 0.8,
-    padding: spacing.md,
-    textAlign: "center",
-  },
-});
+const classes = {
+  options: "gap-2",
+  precinctOption:
+    "flex-row items-center gap-2 rounded-md border border-border bg-surface p-3",
+  precinctSelected: "border-primary bg-primary-soft-bg",
+  optionDot:
+    "h-4 w-4 items-center justify-center rounded-sm border border-ink-muted",
+  optionDotSelected: "border-primary",
+  optionDotFill: "h-2 w-2 rounded-[4px] bg-primary",
+  optionCopy: "flex-1 gap-[1px]",
+  precinctName: "font-body-medium text-[14px] leading-[19px] text-ink",
+  precinctNameSelected: "text-ink",
+  precinctDetail: "font-body text-[12px] leading-[17px] text-ink-muted",
+  resultBanner:
+    "gap-2 rounded-md border border-border border-l-[3px] border-l-primary bg-surface p-4",
+  resultHeader: "flex-row items-start justify-between gap-2",
+  resultCopy: "flex-1 gap-[1px]",
+  resultEyebrow: "font-body-medium text-[12px] tracking-[0.4px] text-ink-muted",
+  resultTitle: "font-body-bold text-section text-ink",
+  resultRow:
+    "flex-row items-center justify-between gap-2 border-t border-border pt-2",
+  resultLabel: "font-body text-[12px] text-ink-muted",
+  resultValue: "shrink font-body-medium text-[13px] text-right text-ink",
+  passwordLabel: "mt-1 font-body text-[12px] leading-[15px] text-ink-muted",
+  password:
+    "rounded-md border border-primary bg-background p-3 text-center font-mono text-[18px] tracking-[0.8px] text-ink",
+} as const;

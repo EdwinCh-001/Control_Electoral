@@ -3,6 +3,7 @@ import "../global.css";
 import { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { Provider } from "react-redux";
+import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import {
@@ -24,6 +25,7 @@ import {
 import { RootNavigator } from "../features/access/presentation/navigation/RootNavigator";
 import { crashReporter } from "../shared/infrastructure/CrashReporter";
 import { installGlobalErrorHandler } from "../shared/infrastructure/installGlobalErrorHandler";
+import { AuraBackground } from "../shared/presentation/components/AuraBackground";
 import { store, useAppDispatch } from "./store";
 
 /*
@@ -109,7 +111,10 @@ export default function App() {
       <AuthRepositoryProvider repository={authRepository}>
         <SafeAreaProvider>
           <GestureHandlerRootView style={{ flex: 1 }}>
-            <AuthBootstrap />
+            <View className="flex-1 bg-background">
+              <AuraBackground />
+              <AuthBootstrap />
+            </View>
           </GestureHandlerRootView>
         </SafeAreaProvider>
       </AuthRepositoryProvider>

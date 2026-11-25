@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { ChevronRight } from "lucide-react-native";
@@ -7,7 +7,7 @@ import { ChevronRight } from "lucide-react-native";
 import type { RootStackParamList } from "../../../app/navigationTypes";
 import { useAppSelector } from "../../../app/store";
 import type { NoticeKind } from "../../../shared/presentation/messages";
-import { colors, fonts, radii, spacing } from "../../../shared/presentation/theme";
+import { colors } from "../../../shared/presentation/theme";
 import {
   AuthPage,
   EmptyState,
@@ -332,19 +332,19 @@ export function ActaListScreen({ navigation }: Props) {
         />
       ) : (
         <>
-          <View style={styles.summaryStrip}>
-            <View style={styles.metricsRow}>
+          <View className={classes.summaryStrip}>
+            <View className={classes.metricsRow}>
               <Metric value={stations.length} label="mesas" />
-              <View style={styles.metricDivider} />
+              <View className={classes.metricDivider} />
               <Metric
                 value={readyCount}
                 label="por revisar"
                 tone={readyCount > 0 ? "warning" : "default"}
               />
-              <View style={styles.metricDivider} />
+              <View className={classes.metricDivider} />
               <Metric value={sentCount} label="subidas" tone="success" />
             </View>
-            <Text style={styles.summaryHint}>
+            <Text className={classes.summaryHint}>
               {failedCount > 0
                 ? `${failedCount} acta${failedCount === 1 ? "" : "s"} necesita${failedCount === 1 ? "" : "n"} atención.`
                 : pendingCount > 0
@@ -369,16 +369,16 @@ export function ActaListScreen({ navigation }: Props) {
               message="Cambia de pestaña para ver el resto de tus mesas."
             />
           ) : (
-            <View style={styles.stationList}>
+            <View className={classes.stationList}>
               {filteredStations.map((station) => (
-                <View key={station.id} style={styles.stationBlock}>
-                  <View style={styles.stationHeader}>
-                    <View style={styles.stationMark} />
-                    <View style={styles.stationCopy}>
-                      <Text style={styles.stationTitle}>
+                <View key={station.id} className={classes.stationBlock}>
+                  <View className={classes.stationHeader}>
+                    <View className={classes.stationMark} />
+                    <View className={classes.stationCopy}>
+                      <Text className={classes.stationTitle}>
                         {station.precinctName}
                       </Text>
-                      <Text style={styles.stationMeta}>
+                      <Text className={classes.stationMeta}>
                         Mesa {station.stationNumber}
                         {station.sex
                           ? ` · ${station.sex === "female" ? "Mujeres" : "Hombres"}`
@@ -387,7 +387,7 @@ export function ActaListScreen({ navigation }: Props) {
                     </View>
                   </View>
 
-                  <View style={styles.officesWrap}>
+                  <View className={classes.officesWrap}>
                     {(["mayor", "prefect"] as const).map((office) => {
                       const summary = getSummary(summaries, station.id, office);
                       const busyKey = `${station.id}-${office}`;
@@ -412,10 +412,10 @@ export function ActaListScreen({ navigation }: Props) {
                               void openActa(station, office);
                             }
                           }}
-                          style={styles.officeRow}
+                          className={classes.officeRow}
                         >
-                          <View style={styles.officeDetails}>
-                            <Text style={styles.officeTitle}>
+                          <View className={classes.officeDetails}>
+                            <Text className={classes.officeTitle}>
                               {officeLabels[office]}
                             </Text>
                             <StatusChip
@@ -424,8 +424,8 @@ export function ActaListScreen({ navigation }: Props) {
                             />
                           </View>
                           {canOpen ? (
-                            <View style={styles.inlinePill}>
-                              <Text style={styles.inlinePillText}>
+                            <View className={classes.inlinePill}>
+                              <Text className={classes.inlinePillText}>
                                 {busyStation === busyKey
                                   ? "Abriendo…"
                                   : canCorrect
@@ -455,103 +455,22 @@ export function ActaListScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  summaryStrip: {
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    borderLeftColor: colors.accent,
-    borderLeftWidth: 4,
-    gap: spacing.sm,
-    paddingBottom: spacing.md,
-    paddingLeft: spacing.md,
-  },
-  metricsRow: {
-    alignItems: "stretch",
-    flexDirection: "row",
-    gap: spacing.md,
-  },
-  metricDivider: {
-    backgroundColor: colors.border,
-    width: 1,
-  },
-  summaryHint: {
-    color: colors.inkMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  stationList: {
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
-  },
-  stationBlock: {
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-  },
-  stationHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  stationMark: {
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-    height: 28,
-    width: 3,
-  },
-  stationCopy: {
-    flex: 1,
-    gap: 1,
-  },
-  stationTitle: {
-    color: colors.ink,
-    fontFamily: fonts.bodyBold,
-    fontSize: 16,
-    lineHeight: 21,
-  },
-  stationMeta: {
-    color: colors.inkMuted,
-    fontFamily: fonts.body,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  officesWrap: {
-    gap: spacing.xs,
-    paddingLeft: spacing.md,
-  },
-  officeRow: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderRadius: radii.md,
-    flexDirection: "row",
-    gap: spacing.sm,
-    justifyContent: "space-between",
-    minHeight: 48,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  officeDetails: {
-    alignItems: "center",
-    flex: 1,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  officeTitle: {
-    color: colors.ink,
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
-  },
-  inlinePill: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 2,
-  },
-  inlinePillText: {
-    color: colors.primary,
-    fontFamily: fonts.bodyBold,
-    fontSize: 13,
-  },
-});
+const classes = {
+  summaryStrip: "border-b border-b-border border-l-[4px] border-l-accent gap-2 pb-3 pl-3",
+  metricsRow: "flex-row items-stretch gap-3",
+  metricDivider: "w-[1px] bg-border",
+  summaryHint: "font-body text-[12px] leading-[17px] text-ink-muted",
+  stationList: "border-t border-border",
+  stationBlock: "border-b border-border gap-2 py-3",
+  stationHeader: "flex-row items-center gap-2",
+  stationMark: "h-[28px] w-[3px] rounded-[2px] bg-primary",
+  stationCopy: "flex-1 gap-[1px]",
+  stationTitle: "font-body-bold text-[16px] leading-[21px] text-ink",
+  stationMeta: "font-body text-small text-ink-muted",
+  officesWrap: "gap-1 pl-3",
+  officeRow: "min-h-[48px] flex-row items-center justify-between gap-2 rounded-md bg-surface px-3 py-2",
+  officeDetails: "flex-1 flex-row flex-wrap items-center gap-2",
+  officeTitle: "font-body-bold text-[14px] text-ink",
+  inlinePill: "flex-row items-center gap-[2px]",
+  inlinePillText: "font-body-bold text-[13px] text-primary",
+} as const;

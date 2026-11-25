@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MapPin } from "lucide-react-native";
 
 import type { RootStackParamList } from "../../../app/navigationTypes";
 import { GeoMap } from "../../../shared/presentation/components/GeoMap";
-import { colors, fonts, radii, spacing } from "../../../shared/presentation/theme";
+import { colors } from "../../../shared/presentation/theme";
 import {
   AuthPage,
   EmptyState,
@@ -145,13 +145,13 @@ export function ProvincialLocationReviewScreen({ navigation }: Props) {
           />
 
           {selectedActa ? (
-            <View style={styles.selectedStrip}>
+            <View className={classes.selectedStrip}>
               <MapPin color={colors.primary} size={18} strokeWidth={2.2} />
-              <View style={styles.selectedCopy}>
-                <Text style={styles.selectedTitle}>
+              <View className={classes.selectedCopy}>
+                <Text className={classes.selectedTitle}>
                   {selectedActa.precinctName} · Mesa {selectedActa.stationNumber}
                 </Text>
-                <Text style={styles.meta}>
+                <Text className={classes.meta}>
                   {officeLabels[selectedActa.office]} ·{" "}
                   {formatCapturedAt(selectedActa.capturedAtDevice)}
                   {selectedActa.warningMeters !== null
@@ -162,7 +162,7 @@ export function ProvincialLocationReviewScreen({ navigation }: Props) {
             </View>
           ) : null}
 
-          <View style={styles.list}>
+          <View className={classes.list}>
             {filteredActas.map((acta) => {
               const isSelected = selectedActa?.id === acta.id;
               return (
@@ -171,24 +171,26 @@ export function ProvincialLocationReviewScreen({ navigation }: Props) {
                   accessibilityRole="button"
                   key={acta.id}
                   onPress={() => setSelectedId(acta.id)}
-                  style={[styles.row, isSelected ? styles.rowSelected : null]}
+                  className={
+                    isSelected
+                      ? `${classes.row} ${classes.rowSelected}`
+                      : classes.row
+                  }
                 >
                   <View
-                    style={[
-                      styles.rowMark,
-                      {
-                        backgroundColor:
-                          acta.warningMeters !== null
-                            ? colors.accentDeep
-                            : colors.primary,
-                      },
-                    ]}
+                    className={classes.rowMark}
+                    style={{
+                      backgroundColor:
+                        acta.warningMeters !== null
+                          ? colors.accentDeep
+                          : colors.primary,
+                    }}
                   />
-                  <View style={styles.rowCopy}>
-                    <Text style={styles.rowTitle}>
+                  <View className={classes.rowCopy}>
+                    <Text className={classes.rowTitle}>
                       {acta.precinctName} · Mesa {acta.stationNumber}
                     </Text>
-                    <Text style={styles.meta}>
+                    <Text className={classes.meta}>
                       {officeLabels[acta.office]}
                       {acta.stationSex
                         ? ` · ${acta.stationSex === "female" ? "Mujeres" : "Hombres"}`
@@ -214,64 +216,15 @@ export function ProvincialLocationReviewScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  selectedStrip: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderLeftColor: colors.accent,
-    borderLeftWidth: 4,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: spacing.sm,
-    padding: spacing.md,
-  },
-  selectedCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  selectedTitle: {
-    color: colors.ink,
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  list: {
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
-  },
-  row: {
-    alignItems: "center",
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-  },
-  rowSelected: {
-    backgroundColor: colors.primarySoftBg,
-    paddingHorizontal: spacing.sm,
-  },
-  rowMark: {
-    borderRadius: 2,
-    height: 28,
-    width: 3,
-  },
-  rowCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  rowTitle: {
-    color: colors.ink,
-    fontFamily: fonts.bodyBold,
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  meta: {
-    color: colors.inkMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-});
+const classes = {
+  selectedStrip: "flex-row items-center gap-2 rounded-md border border-border border-l-[4px] border-l-accent bg-surface p-3",
+  selectedCopy: "flex-1 gap-[2px]",
+  selectedTitle: "font-body-bold text-[14px] leading-[19px] text-ink",
+  list: "border-t border-border",
+  row: "flex-row items-center gap-2 border-b border-border py-3",
+  rowSelected: "bg-primary-soft-bg px-2",
+  rowMark: "h-[28px] w-[3px] rounded-[2px]",
+  rowCopy: "flex-1 gap-[2px]",
+  rowTitle: "font-body-bold text-[15px] leading-5 text-ink",
+  meta: "font-body text-[12px] leading-[17px] text-ink-muted",
+} as const;

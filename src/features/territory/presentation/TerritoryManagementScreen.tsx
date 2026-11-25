@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -14,7 +14,8 @@ import { ChevronRight, UserPlus } from "lucide-react-native";
 
 import type { RootStackParamList } from "../../../app/navigationTypes";
 import { useAppSelector } from "../../../app/store";
-import { colors, fonts, radii, spacing } from "../../../shared/presentation/theme";
+import { colors } from "../../../shared/presentation/theme";
+import type { PollingStationSex } from "../../../shared/domain/pollingStation";
 import { territoryRepository } from "../data";
 import type {
   TerritoryManagement,
@@ -45,6 +46,25 @@ const precinctSchema = z.object({
 
 type PrecinctValues = z.infer<typeof precinctSchema>;
 
+const stationSchema = z.object({
+  stationNumber: z
+    .string()
+    .trim()
+    .min(1, "Ingresa el número de mesa.")
+    .regex(/^\d+$/, "Usa solo números.")
+    .refine((value) => Number(value) > 0, "Debe ser mayor a cero."),
+  sex: z.enum(["female", "male"], {
+    error: "Selecciona el sexo de la mesa.",
+  }).optional(),
+});
+
+type StationValues = z.infer<typeof stationSchema>;
+
+const sexOptions: { value: PollingStationSex; label: string }[] = [
+  { value: "female", label: "Mujeres" },
+  { value: "male", label: "Hombres" },
+];
+
 const emptyManagement: TerritoryManagement = {
   cantons: [],
   precincts: [],
@@ -63,6 +83,12 @@ export function TerritoryManagementScreen({ navigation }: Props) {
   const [provincialTab, setProvincialTab] = useState<"precincts" | "create">(
     "precincts",
   );
+  const [coordinatorTab, setCoordinatorTab] = useState<
+    "stations" | "createStation"
+  >("stations");
+  const [selectedStationSex, setSelectedStationSex] = useState<
+    PollingStationSex | ""
+  >("");
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -76,6 +102,15 @@ export function TerritoryManagementScreen({ navigation }: Props) {
   const { control, handleSubmit, reset } = useForm<PrecinctValues>({
     resolver: zodResolver(precinctSchema),
     defaultValues: { parish: "", name: "" },
+  });
+  const {
+    control: stationControl,
+    handleSubmit: handleStationSubmit,
+    reset: resetStation,
+    setValue: setStationValue,
+  } = useForm<StationValues>({
+    resolver: zodResolver(stationSchema),
+    defaultValues: { stationNumber: "", sex: undefined },
   });
 
   const loadManagement = useCallback(async () => {
@@ -194,6 +229,43 @@ export function TerritoryManagementScreen({ navigation }: Props) {
       setIsCreatingPrecinct(false);
     }
   });
+  const myPrecinct = management.precincts[0] ?? null;
+
+  const createStation = handleStationSubmit(async (values) => {
+    if (!myPrecinct) {
+      setError("Tu cuenta todavía no tiene un recinto asignado.");
+      return;
+    }
+    if (!values.sex) {
+      setError("Selecciona el sexo de la mesa.");
+      return;
+    }
+
+    setBusyId("create-station");
+    setError(null);
+    setSuccess(null);
+    try {
+      await territoryRepository.createStation({
+        precinctId: myPrecinct.id,
+        stationNumber: Number(values.stationNumber),
+        sex: values.sex as PollingStationSex,
+      });
+      resetStation();
+      setSelectedStationSex("");
+      setSuccess("La mesa se agregó a tu recinto.");
+      setCoordinatorTab("stations");
+      await loadManagement();
+    } catch (createError) {
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : "No se pudo agregar la mesa.",
+      );
+    } finally {
+      setBusyId(null);
+    }
+  });
+
   const filteredObservers = management.observers.filter((person) =>
     `${person.fullName} ${person.email}`
       .toLocaleLowerCase()
@@ -214,26 +286,24 @@ export function TerritoryManagementScreen({ navigation }: Props) {
           snapPoints={["72%"]}
           enablePanDownToClose
           backdropComponent={renderBackdrop}
-          backgroundStyle={styles.sheetBackground}
-          handleIndicatorStyle={styles.sheetHandle}
+          backgroundStyle={{ backgroundColor: colors.surface }}
+          handleIndicatorStyle={{ backgroundColor: colors.inkMuted }}
           onClose={() => setActiveStation(null)}
         >
           <BottomSheetScrollView
-            contentContainerStyle={[
-              styles.sheetContent,
-              { paddingBottom: spacing.xxxl + insets.bottom },
-            ]}
+            contentContainerStyle={{ paddingBottom: 32 + insets.bottom }}
           >
+            <View className={classes.sheetContent}>
             {activeStation ? (
               <>
-                <Text style={styles.sheetEyebrow}>Asignar veedor</Text>
-                <Text style={styles.sheetTitle}>
+                <Text className={classes.sheetEyebrow}>Asignar veedor</Text>
+                <Text className={classes.sheetTitle}>
                   Mesa {activeStation.stationNumber}
                   {activeStation.sex
                     ? ` · ${activeStation.sex === "female" ? "Mujeres" : "Hombres"}`
                     : ""}
                 </Text>
-                <Text style={styles.detail}>{activeStation.precinctName}</Text>
+                <Text className={classes.detail}>{activeStation.precinctName}</Text>
 
                 <TextInput
                   accessibilityLabel="Buscar veedor"
@@ -242,11 +312,11 @@ export function TerritoryManagementScreen({ navigation }: Props) {
                   placeholder="Buscar por nombre o correo"
                   placeholderTextColor={colors.inkMuted}
                   selectionColor={colors.primary}
-                  style={styles.search}
+                  className={classes.search}
                   value={observerSearch}
                 />
 
-                <View style={styles.options}>
+                <View className={classes.options}>
                   <PersonOption
                     person={{ id: "", fullName: "Sin asignar", email: "" }}
                     selected={!selectedObserverId}
@@ -288,6 +358,7 @@ export function TerritoryManagementScreen({ navigation }: Props) {
                 />
               </>
             ) : null}
+            </View>
           </BottomSheetScrollView>
         </BottomSheet>
       }
@@ -301,7 +372,7 @@ export function TerritoryManagementScreen({ navigation }: Props) {
         description={
           isProvincial
             ? "Recintos de tu jurisdicción."
-            : "Toca una mesa para asignar veedor."
+            : "Crea tus mesas y toca una para asignar veedor."
         }
       />
       <ActionCard
@@ -334,12 +405,12 @@ export function TerritoryManagementScreen({ navigation }: Props) {
           />
 
           {provincialTab === "create" ? (
-            <View style={styles.formSection}>
-              <Text style={styles.detail}>
+            <View className={classes.formSection}>
+              <Text className={classes.detail}>
                 Elige un cantón de tu provincia. Solo se crea dentro de tu
                 jurisdicción.
               </Text>
-              <View style={styles.options}>
+              <View className={classes.options}>
                 {management.cantons.length ? (
                   management.cantons.map((canton) => {
                     const isSelected = selectedCantonId === canton.id;
@@ -349,24 +420,27 @@ export function TerritoryManagementScreen({ navigation }: Props) {
                         accessibilityState={{ checked: isSelected }}
                         key={canton.id}
                         onPress={() => setSelectedCantonId(canton.id)}
-                        style={[
-                          styles.option,
-                          isSelected ? styles.optionSelected : null,
-                        ]}
+                        className={
+                          isSelected
+                            ? `${classes.option} ${classes.optionSelected}`
+                            : classes.option
+                        }
                       >
                         <View
-                          style={[
-                            styles.optionDot,
-                            isSelected ? styles.optionDotSelected : null,
-                          ]}
+                          className={
+                            isSelected
+                              ? `${classes.optionDot} ${classes.optionDotSelected}`
+                              : classes.optionDot
+                          }
                         >
-                          {isSelected ? <View style={styles.optionDotFill} /> : null}
+                          {isSelected ? <View className={classes.optionDotFill} /> : null}
                         </View>
                         <Text
-                          style={[
-                            styles.optionName,
-                            isSelected ? styles.optionNameSelected : null,
-                          ]}
+                          className={
+                            isSelected
+                              ? `${classes.optionName} ${classes.optionNameSelected}`
+                              : classes.optionName
+                          }
                         >
                           {canton.name}
                         </Text>
@@ -405,15 +479,15 @@ export function TerritoryManagementScreen({ navigation }: Props) {
               />
             </View>
           ) : management.precincts.length ? (
-            <View style={styles.flatList}>
+            <View className={classes.flatList}>
               {management.precincts.map((precinct) => (
-                <View key={precinct.id} style={styles.flatRow}>
-                  <View style={styles.flatRowCopy}>
-                    <Text style={styles.rowTitle}>{precinct.name}</Text>
-                    <Text style={styles.detail}>
+                <View key={precinct.id} className={classes.flatRow}>
+                  <View className={classes.flatRowCopy}>
+                    <Text className={classes.rowTitle}>{precinct.name}</Text>
+                    <Text className={classes.detail}>
                       {precinct.parish} · {precinct.cantonName}
                     </Text>
-                    <Text style={styles.rowMeta}>
+                    <Text className={classes.rowMeta}>
                       {precinct.coordinator
                         ? `Coordinador: ${precinct.coordinator.fullName}`
                         : "Sin coordinador asignado"}
@@ -433,50 +507,129 @@ export function TerritoryManagementScreen({ navigation }: Props) {
             />
           )}
         </>
-      ) : management.stations.length ? (
-        <View style={styles.flatList}>
-          {management.stations.map((station) => (
-            <Pressable
-              accessibilityLabel={`Asignar veedor a mesa ${station.stationNumber}`}
-              accessibilityRole="button"
-              key={station.id}
-              onPress={() => {
-                setActiveStation(station);
-                setSelectedObserverId(station.observer?.id ?? "");
-                setObserverSearch("");
-                sheetRef.current?.expand();
-              }}
-              style={styles.flatRow}
-            >
-              <View style={styles.flatRowCopy}>
-                <Text style={styles.rowTitle}>
-                  Mesa {station.stationNumber}
-                  {station.sex
-                    ? ` · ${station.sex === "female" ? "Mujeres" : "Hombres"}`
-                    : ""}
-                </Text>
-                <Text style={styles.detail}>{station.precinctName}</Text>
-                <Text style={styles.rowMeta}>
-                  {station.observer
-                    ? `Veedor: ${station.observer.fullName}`
-                    : "Toca para asignar veedor"}
-                </Text>
-              </View>
-              <View style={styles.rowRight}>
-                <StatusChip
-                  label={station.observer ? "Asignada" : "Libre"}
-                  tone={station.observer ? "success" : "warning"}
-                />
-                <ChevronRight color={colors.inkMuted} size={18} />
-              </View>
-            </Pressable>
-          ))}
-        </View>
-      ) : (
+      ) : !myPrecinct ? (
         <EmptyState
-          title="No hay mesas todavía"
-          message="Las mesas aparecerán cuando estén cargadas en tu recinto."
+          title="Sin recinto asignado"
+          message="El coordinador provincial debe asignarte un recinto antes de crear mesas."
         />
+      ) : (
+        <>
+          <SegmentedTabs
+            onChange={setCoordinatorTab}
+            options={[
+              {
+                key: "stations",
+                label: "Mesas",
+                badge: management.stations.length,
+              },
+              { key: "createStation", label: "Nueva mesa" },
+            ]}
+            value={coordinatorTab}
+          />
+
+          {coordinatorTab === "createStation" ? (
+            <View className={classes.formSection}>
+              <Text className={classes.detail}>
+                Recinto: {myPrecinct.name}. Solo tú puedes crear sus mesas.
+              </Text>
+              <FormField
+                control={stationControl}
+                keyboardType="numeric"
+                label="Número de mesa"
+                name="stationNumber"
+                numeric
+                placeholder="Ej. 12"
+              />
+              <View className={classes.sexField}>
+                <Text className={classes.label}>Sexo de la mesa</Text>
+                <View className={classes.sexOptions}>
+                  {sexOptions.map((option) => {
+                    const isSelected = selectedStationSex === option.value;
+                    return (
+                      <Pressable
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: isSelected }}
+                        key={option.value}
+                        onPress={() => {
+                          setSelectedStationSex(option.value);
+                          setStationValue("sex", option.value, {
+                            shouldValidate: true,
+                          });
+                        }}
+                        className={
+                          isSelected
+                            ? `${classes.sexOption} ${classes.sexOptionSelected}`
+                            : classes.sexOption
+                        }
+                      >
+                        <Text
+                          className={
+                            isSelected
+                              ? `${classes.sexOptionText} ${classes.sexOptionTextSelected}`
+                              : classes.sexOptionText
+                          }
+                        >
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+              <PrimaryButton
+                disabled={busyId === "create-station" || isLoading}
+                label={
+                  busyId === "create-station" ? "Guardando…" : "Agregar mesa"
+                }
+                onPress={() => void createStation()}
+              />
+            </View>
+          ) : management.stations.length ? (
+            <View className={classes.flatList}>
+              {management.stations.map((station) => (
+                <Pressable
+                  accessibilityLabel={`Asignar veedor a mesa ${station.stationNumber}`}
+                  accessibilityRole="button"
+                  key={station.id}
+                  onPress={() => {
+                    setActiveStation(station);
+                    setSelectedObserverId(station.observer?.id ?? "");
+                    setObserverSearch("");
+                    sheetRef.current?.expand();
+                  }}
+                  className={classes.flatRow}
+                >
+                  <View className={classes.flatRowCopy}>
+                    <Text className={classes.rowTitle}>
+                      Mesa {station.stationNumber}
+                      {station.sex
+                        ? ` · ${station.sex === "female" ? "Mujeres" : "Hombres"}`
+                        : ""}
+                    </Text>
+                    <Text className={classes.detail}>{station.precinctName}</Text>
+                    <Text className={classes.rowMeta}>
+                      {station.observer
+                        ? `Veedor: ${station.observer.fullName}`
+                        : "Toca para asignar veedor"}
+                    </Text>
+                  </View>
+                  <View className={classes.rowRight}>
+                    <StatusChip
+                      label={station.observer ? "Asignada" : "Libre"}
+                      tone={station.observer ? "success" : "warning"}
+                    />
+                    <ChevronRight color={colors.inkMuted} size={18} />
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <EmptyState
+              title="No hay mesas todavía"
+              message="Agrega la primera mesa en la pestaña Nueva mesa y luego asigna los veedores."
+            />
+          )}
+        </>
       )}
     </AuthPage>
   );
@@ -496,165 +649,75 @@ function PersonOption({
       accessibilityRole="radio"
       accessibilityState={{ checked: selected }}
       onPress={onPress}
-      style={[styles.option, selected ? styles.optionSelected : null]}
+      className={
+        selected
+          ? `${classes.option} ${classes.optionSelected}`
+          : classes.option
+      }
     >
       <View
-        style={[
-          styles.optionDot,
-          selected ? styles.optionDotSelected : null,
-        ]}
+        className={
+          selected
+            ? `${classes.optionDot} ${classes.optionDotSelected}`
+            : classes.optionDot
+        }
       >
-        {selected ? <View style={styles.optionDotFill} /> : null}
+        {selected ? <View className={classes.optionDotFill} /> : null}
       </View>
-      <View style={styles.optionCopy}>
+      <View className={classes.optionCopy}>
         <Text
-          style={[
-            styles.optionName,
-            selected ? styles.optionNameSelected : null,
-          ]}
+          className={
+            selected
+              ? `${classes.optionName} ${classes.optionNameSelected}`
+              : classes.optionName
+          }
         >
           {person.fullName}
         </Text>
         {person.email ? (
-          <Text style={styles.optionEmail}>{person.email}</Text>
+          <Text className={classes.optionEmail}>{person.email}</Text>
         ) : null}
       </View>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  formSection: {
-    gap: spacing.sm,
-  },
-  flatList: {
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
-  },
-  flatRow: {
-    alignItems: "center",
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    gap: spacing.sm,
-    justifyContent: "space-between",
-    paddingVertical: spacing.md,
-  },
-  flatRowCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  rowTitle: {
-    color: colors.ink,
-    fontFamily: fonts.bodyBold,
-    fontSize: 16,
-    lineHeight: 21,
-  },
-  rowMeta: {
-    color: colors.primary,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 2,
-  },
-  rowRight: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.xs,
-  },
-  detail: {
-    color: colors.inkMuted,
-    fontFamily: fonts.body,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  search: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    color: colors.ink,
-    fontFamily: fonts.body,
-    fontSize: 15,
-    minHeight: 48,
-    paddingHorizontal: spacing.md,
-  },
-  sheetBackground: {
-    backgroundColor: colors.surface,
-  },
-  sheetHandle: {
-    backgroundColor: colors.inkMuted,
-  },
-  sheetContent: {
-    gap: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-  },
-  sheetEyebrow: {
-    color: colors.inkMuted,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 12,
-    letterSpacing: 0.4,
-  },
-  sheetTitle: {
-    color: colors.primaryDark,
-    fontFamily: fonts.display,
-    fontSize: 22,
-    fontWeight: "700",
-    lineHeight: 26,
-  },
-  options: {
-    gap: spacing.sm,
-  },
-  option: {
-    alignItems: "center",
-    backgroundColor: colors.navy,
-    borderColor: colors.navyBorder,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: spacing.sm,
-    padding: spacing.md,
-  },
-  optionSelected: {
-    backgroundColor: colors.redSoft,
-    borderColor: colors.red,
-  },
-  optionDot: {
-    alignItems: "center",
-    borderColor: colors.boneMuted,
-    borderRadius: 8,
-    borderWidth: 1,
-    height: 16,
-    justifyContent: "center",
-    width: 16,
-  },
-  optionDotSelected: {
-    borderColor: colors.red,
-  },
-  optionDotFill: {
-    backgroundColor: colors.red,
-    borderRadius: 4,
-    height: 8,
-    width: 8,
-  },
-  optionCopy: {
-    flex: 1,
-    gap: 1,
-  },
-  optionName: {
-    color: colors.bone,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  optionNameSelected: {
-    color: colors.white,
-  },
-  optionEmail: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-});
+const classes = {
+  formSection: "gap-2",
+  flatList: "border-t border-border",
+  flatRow:
+    "flex-row items-center justify-between gap-2 border-b border-border py-3",
+  flatRowCopy: "flex-1 gap-[2px]",
+  rowTitle: "font-body-bold text-[16px] leading-[21px] text-ink",
+  rowMeta: "mt-[2px] font-body-medium text-[13px] leading-[18px] text-primary",
+  rowRight: "flex-row items-center gap-1",
+  detail: "font-body text-[13px] leading-[18px] text-ink-muted",
+  search:
+    "min-h-[48px] rounded-md border border-border bg-background px-3 font-body text-[15px] text-ink",
+  sheetContent: "gap-2 px-5 pt-3",
+  sheetEyebrow:
+    "font-body-medium text-[12px] tracking-[0.4px] text-ink-muted",
+  sheetTitle:
+    "font-display text-[22px] font-bold leading-[26px] text-primary-dark",
+  options: "gap-2",
+  option:
+    "flex-row items-center gap-2 rounded-md border border-border bg-background p-3",
+  optionSelected: "border-primary bg-primary-soft-bg",
+  optionDot:
+    "h-4 w-4 items-center justify-center rounded-lg border border-ink-muted",
+  optionDotSelected: "border-primary",
+  optionDotFill: "h-2 w-2 rounded-[4px] bg-primary",
+  optionCopy: "flex-1 gap-[1px]",
+  optionName: "font-body-medium text-[14px] leading-[19px] text-ink",
+  optionNameSelected: "text-primary-dark",
+  optionEmail: "font-body text-[12px] leading-4 text-ink-muted",
+  label: "font-body-medium text-label text-primary-dark",
+  fieldError: "font-body-medium text-[14px] leading-[19px] text-primary-dark",
+  sexField: "gap-2",
+  sexOptions: "flex-row gap-2",
+  sexOption:
+    "min-h-11 flex-1 flex-row items-center justify-center rounded-md border border-border bg-background px-3",
+  sexOptionSelected: "border-primary bg-primary-soft-bg",
+  sexOptionText: "font-body-medium text-[14px] text-ink",
+  sexOptionTextSelected: "font-body-bold text-primary-dark",
+} as const;

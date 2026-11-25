@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { Image } from "expo-image";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { MapPin, TriangleAlert } from "lucide-react-native";
 
 import type { RootStackParamList } from "../../../app/navigationTypes";
-import { colors, fonts, radii, spacing } from "../../../shared/presentation/theme";
+import { colors } from "../../../shared/presentation/theme";
 import {
   AuthPage,
   Feedback,
@@ -77,12 +77,12 @@ export function ProvincialActaDetailScreen({ route, navigation }: Props) {
 
       {acta ? (
         <>
-          <View style={styles.headerStrip}>
-            <View style={styles.headerTop}>
-              <View style={styles.headerCopy}>
-                <Text style={styles.headerEyebrow}>{acta.cantonName}</Text>
-                <Text style={styles.headerTitle}>{acta.precinctName}</Text>
-                <Text style={styles.muted}>
+          <View className={classes.headerStrip}>
+            <View className={classes.headerTop}>
+              <View className={classes.headerCopy}>
+                <Text className={classes.headerEyebrow}>{acta.cantonName}</Text>
+                <Text className={classes.headerTitle}>{acta.precinctName}</Text>
+                <Text className={classes.muted}>
                   Mesa {acta.stationNumber}
                   {acta.stationSex
                     ? ` · ${acta.stationSex === "female" ? "Femenina" : "Masculina"}`
@@ -105,26 +105,26 @@ export function ProvincialActaDetailScreen({ route, navigation }: Props) {
           />
 
           {activeTab === "votes" ? (
-            <View style={styles.resultsList}>
-              <View style={styles.resultRow}>
-                <Text style={styles.resultLabel}>Sufragantes</Text>
+            <View className={classes.resultsList}>
+              <View className={classes.resultRow}>
+                <Text className={classes.resultLabel}>Sufragantes</Text>
                 <VoteValue value={acta.totalVoters} />
               </View>
-              <View style={styles.resultRow}>
-                <Text style={styles.resultLabel}>Votos en blanco</Text>
+              <View className={classes.resultRow}>
+                <Text className={classes.resultLabel}>Votos en blanco</Text>
                 <VoteValue value={acta.blankVotes} />
               </View>
-              <View style={styles.resultRow}>
-                <Text style={styles.resultLabel}>Votos nulos</Text>
+              <View className={classes.resultRow}>
+                <Text className={classes.resultLabel}>Votos nulos</Text>
                 <VoteValue value={acta.nullVotes} />
               </View>
               {acta.candidateVotes.map((vote) => (
-                <View key={vote.candidateId} style={styles.candidateRow}>
-                  <View style={styles.candidateCopy}>
-                    <Text style={styles.candidateName}>
+                <View key={vote.candidateId} className={classes.candidateRow}>
+                  <View className={classes.candidateCopy}>
+                    <Text className={classes.candidateName}>
                       {vote.candidateName}
                     </Text>
-                    <Text style={styles.organization}>
+                    <Text className={classes.organization}>
                       {vote.organizationName}
                     </Text>
                   </View>
@@ -140,7 +140,14 @@ export function ProvincialActaDetailScreen({ route, navigation }: Props) {
                 accessibilityLabel="Fotografía del acta electoral"
                 contentFit="contain"
                 source={{ uri: acta.photoUri }}
-                style={styles.photo}
+                style={{
+                  aspectRatio: 3 / 4,
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  width: "100%",
+                }}
               />
             ) : (
               <Feedback
@@ -151,22 +158,22 @@ export function ProvincialActaDetailScreen({ route, navigation }: Props) {
           ) : null}
 
           {activeTab === "map" ? (
-            <View style={styles.mapSection}>
-              <View style={styles.mapMetaRow}>
+            <View className={classes.mapSection}>
+              <View className={classes.mapMetaRow}>
                 <MapPin color={colors.primary} size={17} strokeWidth={2.2} />
-                <Text style={styles.muted}>
+                <Text className={classes.muted}>
                   Captura: {formatCapturedAt(acta.capturedAtDevice)}
                 </Text>
               </View>
               <ProvincialActaMap points={acta.mapPoints} />
               {acta.warningMeters !== null ? (
-                <View style={styles.warningBanner}>
+                <View className={classes.warningBanner}>
                   <TriangleAlert
                     color={colors.accentDeep}
                     size={16}
                     strokeWidth={2.2}
                   />
-                  <Text style={styles.warningText}>
+                  <Text className={classes.warningText}>
                     La foto se tomó a {Math.round(acta.warningMeters)} m del
                     recinto. Queda registrado como aviso.
                   </Text>
@@ -180,118 +187,26 @@ export function ProvincialActaDetailScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  headerStrip: {
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    borderLeftColor: colors.primary,
-    borderLeftWidth: 4,
-    paddingBottom: spacing.md,
-    paddingLeft: spacing.md,
-  },
-  headerTop: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: spacing.sm,
-    justifyContent: "space-between",
-  },
-  headerCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  headerEyebrow: {
-    color: colors.inkMuted,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 12,
-    letterSpacing: 0.4,
-  },
-  headerTitle: {
-    color: colors.ink,
-    fontFamily: fonts.bodyBold,
-    fontSize: 18,
-    lineHeight: 23,
-  },
-  muted: {
-    color: colors.inkMuted,
-    fontFamily: fonts.body,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  photo: {
-    aspectRatio: 3 / 4,
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    width: "100%",
-  },
-  resultsList: {
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
-  },
-  resultRow: {
-    alignItems: "center",
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: spacing.md,
-  },
-  resultLabel: {
-    color: colors.ink,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  candidateRow: {
-    alignItems: "center",
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    gap: spacing.sm,
-    justifyContent: "space-between",
-    paddingVertical: spacing.md,
-  },
-  candidateCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  candidateName: {
-    color: colors.ink,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  organization: {
-    color: colors.inkMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  mapSection: {
-    gap: spacing.sm,
-  },
-  mapMetaRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.xs,
-  },
-  warningBanner: {
-    alignItems: "center",
-    backgroundColor: colors.accentSoft,
-    borderColor: colors.accentDeep,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  warningText: {
-    color: colors.ink,
-    flex: 1,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-});
+const classes = {
+  headerStrip: "border-b border-b-border border-l-[4px] border-l-primary pb-3 pl-3",
+  headerTop: "flex-row items-start justify-between gap-2",
+  headerCopy: "flex-1 gap-[2px]",
+  headerEyebrow:
+    "font-body-medium text-[12px] tracking-[0.4px] text-ink-muted",
+  headerTitle: "font-body-bold text-[18px] leading-[23px] text-ink",
+  muted: "font-body text-[13px] leading-[18px] text-ink-muted",
+  resultsList: "border-t border-border",
+  resultRow:
+    "flex-row items-center justify-between border-b border-border py-4",
+  resultLabel: "font-body-medium text-[15px] leading-[20px] text-ink",
+  candidateRow:
+    "flex-row items-center justify-between gap-2 border-b border-border py-4",
+  candidateCopy: "flex-1 gap-[2px]",
+  candidateName: "font-body-medium text-[14px] leading-[19px] text-ink",
+  organization: "font-body text-[12px] leading-4 text-ink-muted",
+  mapSection: "gap-2",
+  mapMetaRow: "flex-row items-center gap-1",
+  warningBanner:
+    "flex-row items-center gap-2 rounded-md border border-accent-deep bg-accent-soft px-3 py-2",
+  warningText: "flex-1 font-body-medium text-[13px] leading-[18px] text-ink",
+} as const;

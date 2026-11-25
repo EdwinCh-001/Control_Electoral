@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BottomSheet, {
   BottomSheetBackdrop,
@@ -11,7 +11,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { ChevronRight, MapPinned } from "lucide-react-native";
 
 import type { RootStackParamList } from "../../../app/navigationTypes";
-import { colors, fonts, radii, spacing } from "../../../shared/presentation/theme";
+import { colors, spacing } from "../../../shared/presentation/theme";
 import {
   AuthPage,
   EmptyState,
@@ -56,14 +56,14 @@ function TotalsBlock({ totals }: { totals: OfficeScopeTotals[] }) {
   }
 
   return (
-    <View style={styles.totalsBlock}>
+    <View className={classes.totalsBlock}>
       {totals.map((group) => (
         <View
           key={`${group.scope}-${group.office}-${group.precinctId ?? "all"}`}
-          style={styles.totalGroup}
+          className={classes.totalGroup}
         >
-          <View style={styles.totalGroupHeader}>
-            <Text style={styles.totalGroupTitle}>
+          <View className={classes.totalGroupHeader}>
+            <Text className={classes.totalGroupTitle}>
               {officeLabels[group.office]}
             </Text>
             <StatusChip
@@ -72,19 +72,21 @@ function TotalsBlock({ totals }: { totals: OfficeScopeTotals[] }) {
             />
           </View>
           {group.candidates.length === 0 ? (
-            <Text style={styles.muted}>Sin candidaturas registradas.</Text>
+            <Text className={classes.muted}>Sin candidaturas registradas.</Text>
           ) : null}
           {group.candidates.map((candidate) => (
-            <View key={candidate.candidateId} style={styles.totalRow}>
-              <View style={styles.totalCandidateCopy}>
-                <Text style={styles.totalCandidate}>
+            <View key={candidate.candidateId} className={classes.totalRow}>
+              <View className={classes.totalCandidateCopy}>
+                <Text className={classes.totalCandidate}>
                   {candidate.candidateName}
                 </Text>
-                <Text style={styles.totalOrganization}>
+                <Text className={classes.totalOrganization}>
                   {candidate.organizationName}
                 </Text>
               </View>
-              <Text style={styles.totalVotes}>{candidate.votes}</Text>
+              <Text className={classes.totalVotes} style={{ fontVariant: ["tabular-nums"] }}>
+                {candidate.votes}
+              </Text>
             </View>
           ))}
         </View>
@@ -165,8 +167,8 @@ export function ProvincialDashboardScreen({ navigation }: Props) {
         <Pressable
           accessibilityLabel="Ver mapa de ubicaciones"
           accessibilityRole="button"
+          className={classes.mapButton}
           onPress={() => navigation.navigate("ProvincialLocationReview")}
-          style={styles.mapButton}
         >
           <MapPinned color={colors.primaryDark} size={18} strokeWidth={2.2} />
         </Pressable>
@@ -185,23 +187,21 @@ export function ProvincialDashboardScreen({ navigation }: Props) {
           snapPoints={["72%"]}
           enablePanDownToClose
           backdropComponent={renderBackdrop}
-          backgroundStyle={styles.sheetBackground}
-          handleIndicatorStyle={styles.sheetHandle}
+          backgroundStyle={{ backgroundColor: colors.surface }}
+          handleIndicatorStyle={{ backgroundColor: colors.inkMuted }}
           onClose={() => setSelectedPrecinctId(null)}
         >
           <BottomSheetScrollView
-            contentContainerStyle={[
-              styles.sheetContent,
-              { paddingBottom: spacing.xxxl + insets.bottom },
-            ]}
+            contentContainerClassName={classes.sheetContent}
+            contentContainerStyle={{ paddingBottom: spacing.xxxl + insets.bottom }}
           >
             {selectedPrecinct ? (
               <>
-                <Text style={styles.sheetEyebrow}>Detalle del recinto</Text>
-                <Text style={styles.sheetTitle}>
+                <Text className={classes.sheetEyebrow}>Detalle del recinto</Text>
+                <Text className={classes.sheetTitle}>
                   {selectedPrecinct.precinctName}
                 </Text>
-                <Text style={styles.muted}>
+                <Text className={classes.muted}>
                   {selectedPrecinct.cantonName} ·{" "}
                   {selectedPrecinct.reportedStations} de{" "}
                   {selectedPrecinct.totalStations} mesas reportadas
@@ -220,22 +220,22 @@ export function ProvincialDashboardScreen({ navigation }: Props) {
                     key={acta.id}
                     accessibilityLabel={`Revisar acta de la mesa ${acta.stationNumber}`}
                     accessibilityRole="button"
+                    className={classes.actaRow}
                     onPress={() => {
                       sheetRef.current?.close();
                       navigation.navigate("ProvincialActaDetail", {
                         actaId: acta.id,
                       });
                     }}
-                    style={styles.actaRow}
                   >
-                    <View style={styles.actaCopy}>
-                      <Text style={styles.actaLabel}>
+                    <View className={classes.actaCopy}>
+                      <Text className={classes.actaLabel}>
                         Mesa {acta.stationNumber}
                         {acta.sex
                           ? ` · ${acta.sex === "female" ? "Femenina" : "Masculina"}`
                           : ""}
                       </Text>
-                      <Text style={styles.muted}>
+                      <Text className={classes.muted}>
                         {officeLabels[acta.office]}
                       </Text>
                     </View>
@@ -261,11 +261,11 @@ export function ProvincialDashboardScreen({ navigation }: Props) {
 
       {dashboard ? (
         <>
-          <View style={styles.heroStrip}>
-            <View style={styles.heroHeader}>
-              <View style={styles.heroCopy}>
-                <Text style={styles.heroEyebrow}>Escrutinio en vivo</Text>
-                <Text style={styles.heroTitle}>
+          <View className={classes.heroStrip}>
+            <View className={classes.heroHeader}>
+              <View className={classes.heroCopy}>
+                <Text className={classes.heroEyebrow}>Escrutinio en vivo</Text>
+                <Text className={classes.heroTitle}>
                   {dashboard.reportedStations} de {dashboard.totalStations}{" "}
                   mesas reportadas
                 </Text>
@@ -287,7 +287,7 @@ export function ProvincialDashboardScreen({ navigation }: Props) {
                 }
               />
             </View>
-            <Text style={styles.muted}>
+            <Text className={classes.muted}>
               {formatUpdatedAt(dashboard.lastUpdatedAt)}
             </Text>
             <ProgressBar
@@ -300,19 +300,19 @@ export function ProvincialDashboardScreen({ navigation }: Props) {
                     : "danger"
               }
             />
-            <View style={styles.metricsRow}>
+            <View className={classes.metricsRow}>
               <Metric
                 value={dashboard.reportedStations}
                 label="reportadas"
                 tone="success"
               />
-              <View style={styles.metricDivider} />
+              <View className={classes.metricDivider} />
               <Metric
                 value={dashboard.missingStations}
                 label="faltantes"
                 tone={dashboard.missingStations > 0 ? "warning" : "success"}
               />
-              <View style={styles.metricDivider} />
+              <View className={classes.metricDivider} />
               <Metric value={dashboard.totalStations} label="totales" />
             </View>
           </View>
@@ -338,7 +338,7 @@ export function ProvincialDashboardScreen({ navigation }: Props) {
               message="Cuando se asignen recintos a esta provincia, aparecerán aquí."
             />
           ) : (
-            <View style={styles.precinctList}>
+            <View className={classes.precinctList}>
               {dashboard.precincts.map((precinct, index) => {
                 const percent = precinct.totalStations
                   ? Math.round(
@@ -356,35 +356,33 @@ export function ProvincialDashboardScreen({ navigation }: Props) {
                     <Pressable
                       accessibilityLabel={`Abrir detalle de ${precinct.precinctName}`}
                       accessibilityRole="button"
+                      className={classes.precinctRow}
                       onPress={() => {
                         setSelectedPrecinctId(precinct.precinctId);
                         sheetRef.current?.expand();
                       }}
-                      style={styles.precinctRow}
                     >
-                      <View style={styles.precinctHeader}>
-                        <View style={styles.precinctCopy}>
-                          <Text style={styles.precinctName}>
+                      <View className={classes.precinctHeader}>
+                        <View className={classes.precinctCopy}>
+                          <Text className={classes.precinctName}>
                             {precinct.precinctName}
                           </Text>
-                          <Text style={styles.muted}>
+                          <Text className={classes.muted}>
                             {precinct.cantonName} · {precinct.reportedStations}/
                             {precinct.totalStations} mesas
                           </Text>
                         </View>
-                        <View style={styles.precinctRight}>
+                        <View className={classes.precinctRight}>
                           <Text
-                            style={[
-                              styles.percent,
-                              {
-                                color:
-                                  percent === 100
-                                    ? colors.primary
-                                    : percent > 0
-                                      ? colors.accentDeep
-                                      : colors.inkMuted,
-                              },
-                            ]}
+                            className={classes.percent}
+                            style={{
+                              color:
+                                percent === 100
+                                  ? colors.primary
+                                  : percent > 0
+                                    ? colors.accentDeep
+                                    : colors.inkMuted,
+                            }}
                           >
                             {percent}%
                           </Text>
@@ -413,208 +411,40 @@ export function ProvincialDashboardScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  mapButton: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    height: 38,
-    justifyContent: "center",
-    width: 38,
-  },
-  heroStrip: {
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    borderLeftColor: colors.accent,
-    borderLeftWidth: 4,
-    gap: spacing.sm,
-    paddingBottom: spacing.md,
-    paddingLeft: spacing.md,
-  },
-  heroHeader: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: spacing.sm,
-    justifyContent: "space-between",
-  },
-  heroCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  heroEyebrow: {
-    color: colors.boneMuted,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 12,
-    letterSpacing: 0.5,
-  },
-  heroTitle: {
-    color: colors.white,
-    fontFamily: fonts.bodyBold,
-    fontSize: 18,
-    lineHeight: 23,
-  },
-  metricsRow: {
-    alignItems: "stretch",
-    flexDirection: "row",
-    gap: spacing.md,
-  },
-  metricDivider: {
-    backgroundColor: colors.navyBorder,
-    width: 1,
-  },
-  note: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  muted: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  totalsBlock: {
-    gap: spacing.sm,
-  },
-  totalGroup: {
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    gap: spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  totalGroupHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.sm,
-    justifyContent: "space-between",
-  },
-  totalGroupTitle: {
-    color: colors.white,
-    fontFamily: fonts.bodyBold,
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  totalRow: {
-    alignItems: "center",
-    borderTopColor: colors.navyBorder,
-    borderTopWidth: 1,
-    flexDirection: "row",
-    gap: spacing.md,
-    justifyContent: "space-between",
-    paddingTop: spacing.sm,
-  },
-  totalCandidateCopy: {
-    flex: 1,
-    gap: 1,
-  },
-  totalCandidate: {
-    color: colors.bone,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  totalOrganization: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 15,
-  },
-  totalVotes: {
-    color: colors.white,
-    fontFamily: fonts.display,
-    fontSize: 21,
-    fontWeight: "700",
-    fontVariant: ["tabular-nums"],
-    lineHeight: 25,
-  },
-  precinctList: {
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
-  },
-  precinctRow: {
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-  },
-  precinctRight: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 4,
-  },
-  precinctHeader: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: spacing.sm,
-    justifyContent: "space-between",
-  },
-  precinctCopy: {
-    flex: 1,
-    gap: 1,
-  },
-  precinctName: {
-    color: colors.white,
-    fontFamily: fonts.bodyBold,
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  percent: {
-    fontFamily: fonts.display,
-    fontSize: 22,
-    fontWeight: "700",
-    lineHeight: 26,
-  },
-  progressCaption: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  sheetBackground: {
-    backgroundColor: colors.navyDeep,
-  },
-  sheetHandle: {
-    backgroundColor: colors.boneMuted,
-  },
-  sheetContent: {
-    gap: spacing.sm,
-    paddingBottom: spacing.xxxl,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-  },
-  sheetEyebrow: {
-    color: colors.boneMuted,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 12,
-    letterSpacing: 0.5,
-  },
-  sheetTitle: {
-    color: colors.white,
-    fontFamily: fonts.display,
-    fontSize: 25,
-    fontWeight: "700",
-    lineHeight: 29,
-  },
-  actaRow: {
-    alignItems: "center",
-    borderBottomColor: colors.navyBorder,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    gap: spacing.sm,
-    justifyContent: "space-between",
-    paddingVertical: spacing.md,
-  },
-  actaCopy: {
-    flex: 1,
-    gap: 1,
-  },
-  actaLabel: {
-    color: colors.white,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 14,
-    lineHeight: 19,
-  },
-});
+const classes = {
+  mapButton:
+    "h-[38px] w-[38px] items-center justify-center rounded-md border border-border bg-surface",
+  heroStrip:
+    "gap-2 border-b border-b-border border-l-[4px] border-l-accent pb-3 pl-3",
+  heroHeader: "flex-row items-start justify-between gap-2",
+  heroCopy: "flex-1 gap-[2px]",
+  heroEyebrow: "font-body-medium text-[12px] tracking-[0.5px] text-ink-muted",
+  heroTitle: "font-body-bold text-[18px] leading-[23px] text-ink",
+  metricsRow: "flex-row items-stretch gap-3",
+  metricDivider: "w-px bg-border",
+  muted: "font-body text-[13px] leading-[18px] text-ink-muted",
+  totalsBlock: "gap-2",
+  totalGroup: "gap-2 border-b border-border pb-3",
+  totalGroupHeader: "flex-row items-center justify-between gap-2",
+  totalGroupTitle: "font-body-bold text-[15px] leading-[20px] text-ink",
+  totalRow:
+    "flex-row items-center justify-between gap-3 border-t border-border pt-2",
+  totalCandidateCopy: "flex-1 gap-[1px]",
+  totalCandidate: "font-body-medium text-[13px] leading-[18px] text-ink",
+  totalOrganization: "font-body text-[12px] leading-[15px] text-ink-muted",
+  totalVotes: "font-display text-[21px] font-bold leading-[25px] text-ink",
+  precinctList: "border-t border-border",
+  precinctRow: "gap-2 border-b border-border py-3",
+  precinctRight: "flex-row items-center gap-1",
+  precinctHeader: "flex-row items-start justify-between gap-2",
+  precinctCopy: "flex-1 gap-[1px]",
+  precinctName: "font-body-bold text-[15px] leading-[20px] text-ink",
+  percent: "font-display text-[22px] font-bold leading-[26px]",
+  sheetContent: "gap-2 px-5 pb-8 pt-3",
+  sheetEyebrow: "font-body-medium text-[12px] tracking-[0.5px] text-ink-muted",
+  sheetTitle: "font-display text-title font-bold text-ink",
+  actaRow:
+    "flex-row items-center justify-between gap-2 border-b border-border py-3",
+  actaCopy: "flex-1 gap-[1px]",
+  actaLabel: "font-body-medium text-[14px] leading-[19px] text-ink",
+} as const;

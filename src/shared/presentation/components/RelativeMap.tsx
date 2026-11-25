@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Circle, Line, Rect, Svg, Text as SvgText } from "react-native-svg";
 
-import { colors, fonts, radii, spacing, typography } from "../theme";
+import { colors, fonts } from "../theme";
 
 export interface RelativeMapMarker {
   id?: string;
@@ -98,14 +98,17 @@ export function RelativeMap({
 
   if (!projected.length) {
     return (
-      <View style={[styles.container, styles.empty, { height }]}>
-        <Text style={styles.emptyText}>Sin ubicaciones disponibles en el mapa.</Text>
+      <View
+        className={`${classes.container} ${classes.empty}`}
+        style={{ height }}
+      >
+        <Text className={classes.emptyText}>Sin ubicaciones disponibles en el mapa.</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.wrapper}>
+    <View className={classes.wrapper}>
       <View
         onLayout={(event) => {
           const { width, height: measuredHeight } = event.nativeEvent.layout;
@@ -113,7 +116,8 @@ export function RelativeMap({
             setContainerSize({ width, height: measuredHeight });
           }
         }}
-        style={[styles.container, { height }]}
+        className={classes.container}
+        style={{ height }}
       >
         <Svg
           accessibilityLabel={accessibilityLabel}
@@ -273,31 +277,35 @@ export function RelativeMap({
                 accessibilityRole="button"
                 key={`hit-${marker.id ?? marker.title}-${marker.originalIndex}`}
                 onPress={() => onSelectMarker(marker, marker.originalIndex)}
-                style={[
-                  styles.hitTarget,
-                  {
-                    left: marker.x,
-                    top: marker.y,
-                  },
-                ]}
+                className={classes.hitTarget}
+                style={{ left: marker.x, top: marker.y }}
               />
             ))
           : null}
       </View>
 
       {showLegend ? (
-        <View style={styles.legend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: colors.primarySoft }]} />
-            <Text style={styles.legendText}>Normal</Text>
+        <View className={classes.legend}>
+          <View className={classes.legendItem}>
+            <View
+              className={classes.legendDot}
+              style={{ backgroundColor: colors.primarySoft }}
+            />
+            <Text className={classes.legendText}>Normal</Text>
           </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: colors.accentDeep }]} />
-            <Text style={styles.legendText}>Con aviso</Text>
+          <View className={classes.legendItem}>
+            <View
+              className={classes.legendDot}
+              style={{ backgroundColor: colors.accentDeep }}
+            />
+            <Text className={classes.legendText}>Con aviso</Text>
           </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
-            <Text style={styles.legendText}>Activa</Text>
+          <View className={classes.legendItem}>
+            <View
+              className={classes.legendDot}
+              style={{ backgroundColor: colors.primary }}
+            />
+            <Text className={classes.legendText}>Activa</Text>
           </View>
         </View>
       ) : null}
@@ -305,53 +313,14 @@ export function RelativeMap({
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    gap: spacing.xs,
-  },
-  container: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    overflow: "hidden",
-    position: "relative",
-  },
-  empty: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-  },
-  emptyText: {
-    ...typography.small,
-    textAlign: "center",
-  },
-  hitTarget: {
-    height: 36,
-    marginLeft: -18,
-    marginTop: -18,
-    position: "absolute",
-    width: 36,
-  },
-  legend: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
-    paddingHorizontal: spacing.xs,
-  },
-  legendItem: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 5,
-  },
-  legendDot: {
-    borderRadius: 4,
-    height: 8,
-    width: 8,
-  },
-  legendText: {
-    color: colors.inkMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-  },
-});
+const classes = {
+  wrapper: "gap-1",
+  container: "relative overflow-hidden rounded-lg border border-border bg-surface",
+  empty: "items-center justify-center p-4",
+  emptyText: "text-center font-body text-small text-ink-muted",
+  hitTarget: "absolute -ml-[18px] -mt-[18px] h-9 w-9",
+  legend: "flex-row flex-wrap gap-3 px-1",
+  legendItem: "flex-row items-center gap-[5px]",
+  legendDot: "h-2 w-2 rounded-[4px]",
+  legendText: "font-body text-[12px] text-ink-muted",
+} as const;

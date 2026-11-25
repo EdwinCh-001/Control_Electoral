@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import {
   createNavigationContainerRef,
   DefaultTheme,
@@ -27,7 +27,8 @@ import { ProvincialLocationReviewScreen } from "../../../actas/presentation/Prov
 import { ProvincialActaDetailScreen } from "../../../monitoring/presentation/ProvincialActaDetailScreen";
 import { ProvincialDashboardScreen } from "../../../monitoring/presentation/ProvincialDashboardScreen";
 import { crashReporter } from "../../../../shared/infrastructure/CrashReporter";
-import { colors, fonts } from "../../../../shared/presentation/theme";
+import { LottieIcon } from "../../../../shared/presentation/components/LottieIcon";
+import { colors } from "../../../../shared/presentation/theme";
 import {
   AuthPage,
   Feedback,
@@ -43,7 +44,7 @@ const navigationTheme: Theme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: colors.background,
+    background: "transparent",
     border: colors.border,
     card: colors.surface,
     notification: colors.accentDeep,
@@ -90,20 +91,17 @@ export function RootNavigator() {
 
   if (phase === "loading") {
     return (
-      <View style={styles.loading}>
-        <View style={styles.loadingBrand}>
-          <View style={styles.loadingMark}>
-            <Text style={styles.loadingMarkText}>7</Text>
+      <View className={classes.loading}>
+        <View className={classes.loadingBrand}>
+          <View className={classes.loadingMark}>
+            <Text className={classes.loadingMarkText}>7</Text>
           </View>
           <View>
-            <Text style={styles.loadingTitle}>Control Electoral</Text>
-            <Text style={styles.statusText}>Preparando tu jornada…</Text>
+            <Text className={classes.loadingTitle}>Control Electoral</Text>
+            <Text className={classes.statusText}>Preparando tu jornada…</Text>
           </View>
         </View>
-        <ActivityIndicator
-          accessibilityLabel="Preparando tu jornada"
-          color={colors.red}
-        />
+        <LottieIcon name="loading" size={112} />
       </View>
     );
   }
@@ -244,55 +242,12 @@ export function RootNavigator() {
   );
 }
 
-const styles = StyleSheet.create({
-  loading: {
-    alignItems: "center",
-    backgroundColor: colors.navy,
-    flex: 1,
-    gap: 20,
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  loadingRule: {
-    backgroundColor: colors.red,
-    height: 3,
-    left: 0,
-    position: "absolute",
-    right: 0,
-    top: 0,
-  },
-  loadingBrand: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 12,
-  },
-  loadingMark: {
-    alignItems: "center",
-    backgroundColor: colors.red,
-    borderRadius: 10,
-    height: 42,
-    justifyContent: "center",
-    width: 42,
-  },
-  loadingMarkText: {
-    color: colors.onPrimary,
-    fontFamily: fonts.display,
-    fontSize: 14,
-    fontWeight: "700",
-    letterSpacing: 0.4,
-  },
-  loadingTitle: {
-    color: colors.white,
-    fontFamily: fonts.display,
-    fontSize: 22,
-    fontWeight: "700",
-    letterSpacing: -0.2,
-  },
-  statusText: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 14,
-    lineHeight: 19,
-    marginTop: 2,
-  },
-});
+const classes = {
+  loading: "flex-1 items-center justify-center gap-5 px-6",
+  loadingBrand: "flex-row items-center gap-3",
+  loadingMark: "h-[42px] w-[42px] items-center justify-center rounded-[10px] bg-primary",
+  loadingMarkText:
+    "font-display text-[14px] font-bold tracking-[0.4px] text-on-primary",
+  loadingTitle: "font-display text-[22px] font-bold tracking-[-0.2px] text-ink",
+  statusText: "mt-[2px] font-body text-[14px] leading-[19px] text-ink-muted",
+} as const;

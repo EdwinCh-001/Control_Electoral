@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { AppRole } from "../../access/domain/auth";
 import type { Database } from "../../access/infrastructure/database.types";
+import type { PollingStationSex } from "../../../shared/domain/pollingStation";
 import type {
   ManagedPrecinct,
   ManagedStation,
@@ -44,6 +45,21 @@ export class SupabaseTerritoryRepository implements TerritoryRepository {
     const { error } = await client.rpc("assign_observer_to_station", {
       p_polling_station_id: stationId,
       p_observer_id: observerId,
+    });
+    if (error) {
+      throw this.toUserError(error.message);
+    }
+  }
+
+  async createStation(input: {
+    precinctId: string;
+    stationNumber: number;
+    sex: PollingStationSex;
+  }): Promise<void> {
+    const { error } = await this.getClient().rpc("create_polling_station", {
+      p_precinct_id: input.precinctId,
+      p_station_number: input.stationNumber,
+      p_sex: input.sex,
     });
     if (error) {
       throw this.toUserError(error.message);

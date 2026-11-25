@@ -9,11 +9,11 @@ import {
   UsersRound,
 } from "lucide-react-native";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import type { RootStackParamList } from "../../../../app/navigationTypes";
 import { useAppDispatch, useAppSelector } from "../../../../app/store";
-import { colors, fonts, radii, spacing } from "../../../../shared/presentation/theme";
+import { colors } from "../../../../shared/presentation/theme";
 import type { AppRole } from "../../domain/auth";
 import { useAuthRepository } from "../AuthRepositoryContext";
 import { setSession } from "../authSlice";
@@ -21,7 +21,6 @@ import {
   ActionCard,
   ActionTile,
   AuthPage,
-  ConfirmActionSheet,
   Feedback,
   PageTitle,
   SectionTitle,
@@ -41,7 +40,7 @@ export function HomeScreen({ navigation }: Props) {
   const dispatch = useAppDispatch();
   const authRepository = useAuthRepository();
   const [error, setError] = useState<string | null>(null);
-  const [logoutSheetVisible, setLogoutSheetVisible] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   if (!session) {
     return null;
@@ -53,7 +52,7 @@ export function HomeScreen({ navigation }: Props) {
 
   async function handleSignOut() {
     setError(null);
-    setLogoutSheetVisible(false);
+    setIsSigningOut(true);
     try {
       await authRepository.signOut();
       dispatch(setSession(null));
@@ -63,6 +62,8 @@ export function HomeScreen({ navigation }: Props) {
           ? signOutError.message
           : "No se pudo cerrar la sesión.",
       );
+    } finally {
+      setIsSigningOut(false);
     }
   }
 
@@ -74,12 +75,12 @@ export function HomeScreen({ navigation }: Props) {
         description="Elige una opción para continuar."
       />
 
-      <View style={styles.profileStrip}>
-        <View style={styles.profileIcon}>
+      <View className={classes.profileStrip}>
+        <View className={classes.profileIcon}>
           <UserRound color={colors.primary} size={20} strokeWidth={2.2} />
         </View>
-        <View style={styles.profileCopy}>
-          <Text style={styles.profileName}>{profile.full_name}</Text>
+        <View className={classes.profileCopy}>
+          <Text className={classes.profileName}>{profile.full_name}</Text>
           <StatusChip
             label={roleLabels[profile.role]}
             tone={isProvincial ? "action" : "neutral"}
@@ -87,11 +88,11 @@ export function HomeScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <View style={styles.centerArea}>
+      <View className={classes.centerArea}>
         <SectionTitle>Accesos rápidos</SectionTitle>
 
         {isProvincial ? (
-          <View style={styles.tileGrid}>
+          <View className={classes.tileGrid}>
             <ActionTile
               icon={LayoutDashboard}
               title="Tablero"
@@ -125,7 +126,7 @@ export function HomeScreen({ navigation }: Props) {
             onPress={() => navigation.navigate("ActaList")}
           />
         ) : (
-          <View style={styles.tileGrid}>
+          <View className={classes.tileGrid}>
             <ActionTile
               icon={ClipboardList}
               title="Actas"
@@ -153,86 +154,31 @@ export function HomeScreen({ navigation }: Props) {
       <Pressable
         accessibilityLabel="Cerrar sesión"
         accessibilityRole="button"
-        onPress={() => setLogoutSheetVisible(true)}
-        style={({ pressed }) => [
-          styles.signOutButton,
-          pressed ? styles.signOutButtonPressed : null,
-        ]}
+        className={`${classes.signOutButton} ${isSigningOut ? classes.signOutDisabled : ""}`}
+        disabled={isSigningOut}
+        onPress={() => void handleSignOut()}
+        style={({ pressed }) => (pressed ? { opacity: 0.85 } : null)}
       >
         <LogOut color={colors.onPrimary} size={18} strokeWidth={2.2} />
-        <Text style={styles.signOutText}>Cerrar sesión</Text>
+        <Text className={classes.signOutText}>
+          {isSigningOut ? "Cerrando sesión…" : "Cerrar sesión"}
+        </Text>
       </Pressable>
-
-      <ConfirmActionSheet
-        visible={logoutSheetVisible}
-        title="¿Cerrar sesión?"
-        message="Podrás volver a entrar con tu correo y contraseña."
-        confirmLabel="Sí, cerrar"
-        onConfirm={() => {
-          void handleSignOut();
-        }}
-        onCancel={() => setLogoutSheetVisible(false)}
-      />
     </AuthPage>
   );
 }
 
-const styles = StyleSheet.create({
-  profileStrip: {
-    alignItems: "center",
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    gap: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  profileIcon: {
-    alignItems: "center",
-    backgroundColor: colors.primarySoftBg,
-    borderRadius: radii.md,
-    height: 42,
-    justifyContent: "center",
-    width: 42,
-  },
-  profileCopy: {
-    alignItems: "flex-start",
-    flex: 1,
-    gap: 5,
-  },
-  profileName: {
-    color: colors.ink,
-    fontFamily: fonts.bodyBold,
-    fontSize: 17,
-    fontWeight: "700",
-  },
-  centerArea: {
-    flex: 1,
-    gap: spacing.sm,
-    justifyContent: "flex-start",
-    paddingBottom: spacing.md,
-    paddingTop: spacing.xs,
-  },
-  tileGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
-  },
-  signOutButton: {
-    alignItems: "center",
-    backgroundColor: colors.primaryDark,
-    borderRadius: radii.md,
-    flexDirection: "row",
-    gap: spacing.sm,
-    justifyContent: "center",
-    minHeight: 52,
-    paddingHorizontal: spacing.lg,
-  },
-  signOutButtonPressed: {
-    opacity: 0.85,
-  },
-  signOutText: {
-    color: colors.onPrimary,
-    fontFamily: fonts.bodyBold,
-    fontSize: 16,
-  },
-});
+const classes = {
+  profileStrip:
+    "flex-row items-center gap-3 border-b border-border pb-2",
+  profileIcon:
+    "h-[42px] w-[42px] items-center justify-center rounded-md bg-primary-soft-bg",
+  profileCopy: "flex-1 items-start gap-[5px]",
+  profileName: "font-body-bold text-[17px] font-bold text-ink",
+  centerArea: "flex-1 justify-start gap-2 pb-3 pt-1",
+  tileGrid: "flex-row flex-wrap gap-3",
+  signOutButton:
+    "min-h-[52px] flex-row items-center justify-center gap-2 rounded-md bg-primary-dark px-4",
+  signOutDisabled: "opacity-60",
+  signOutText: "font-body-bold text-button text-on-primary",
+} as const;

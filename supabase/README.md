@@ -1,10 +1,10 @@
 # Configuracion de Supabase
 
-La base se crea aplicando, en orden, [`0001_initial_schema.sql`](./migrations/0001_initial_schema.sql) a [`0006_station_sex_and_list_numbers.sql`](./migrations/0006_station_sex_and_list_numbers.sql). Las migraciones definen el esquema y sus restricciones, asignaciones territoriales, cambio obligatorio de contrasena, referencia GPS, permisos de lectura por columna e inclusion de actas/resultados en Realtime. No cargan datos electorales reales ni crean usuarios Auth.
+La base se crea aplicando, en orden, [`0001_initial_schema.sql`](./migrations/0001_initial_schema.sql) a [`0007_precinct_coordinator_creates_stations.sql`](./migrations/0007_precinct_coordinator_creates_stations.sql). Las migraciones definen el esquema y sus restricciones, asignaciones territoriales, cambio obligatorio de contrasena, referencia GPS, permisos de lectura por columna, alta de mesas por el coordinador de recinto e inclusion de actas/resultados en Realtime. No cargan datos electorales reales ni crean usuarios Auth.
 
 ## Modelo de datos
 
-- `provinces -> cantons -> precincts -> polling_stations` define la jerarquia territorial. Los nombres se restringen como unicos dentro de su nivel padre. Las mesas pueden distinguirse por sexo y numero.
+- `provinces -> cantons -> precincts -> polling_stations` define la jerarquia territorial. Los nombres se restringen como unicos dentro de su nivel padre. Las mesas pueden distinguirse por sexo y numero; `0007` permite crearlas solo al coordinador asignado al recinto mediante `create_polling_station`.
 - `political_organizations.list_number` conserva el numero de lista cuando se conoce.
 - `political_organizations -> candidates` define las organizaciones y candidaturas. Cada organizacion puede tener una candidatura por dignidad; antes de enviar un acta deben existir cinco candidaturas de cinco organizaciones para esa dignidad.
 - `auth.users -> profiles` guarda el rol y datos del perfil. `precinct_coordinators` asigna como maximo un coordinador a cada recinto y cada coordinador a un recinto. `observer_assignments` conserva las asignaciones/revocaciones; solo hay un veedor activo por mesa y un veedor puede cubrir varias mesas.
@@ -23,7 +23,7 @@ La base se crea aplicando, en orden, [`0001_initial_schema.sql`](./migrations/00
 
 1. En el Dashboard de Supabase, crea un proyecto nuevo de desarrollo. Guarda la contrasena de la base en un gestor privado; no la agregues a Git.
 2. En **Storage**, crea el bucket `acta-photos` y confirma que sea **private**. La migracion crea politicas para ese bucket y su contenido.
-3. En **SQL Editor**, crea una consulta y ejecuta el contenido de cada migracion, una por una y en orden: `0001`, `0002`, `0003`, `0004`, `0005` y `0006`. Confirma que cada transaccion termine sin errores. Si falla, conserva el error y detente; no vuelvas a ejecutar una migracion que ya se aplico. Para un proyecto existente, aplica solo las migraciones aun pendientes.
+3. En **SQL Editor**, crea una consulta y ejecuta el contenido de cada migracion, una por una y en orden: `0001`, `0002`, `0003`, `0004`, `0005`, `0006` y `0007`. Confirma que cada transaccion termine sin errores. Si falla, conserva el error y detente; no vuelvas a ejecutar una migracion que ya se aplico. Para un proyecto existente, aplica solo las migraciones aun pendientes.
 4. Verifica que existan `provinces`, `cantons`, `precincts`, `polling_stations`, `political_organizations`, `candidates`, `profiles`, `precinct_coordinators`, `observer_assignments`, `actas`, `acta_candidate_votes`, `acta_audit_log` y `precinct_location_references`.
 5. En **Table Editor**, confirma que las tablas de `public` tengan RLS habilitado. En **Policies**, revisa las politicas de tablas y de `storage.objects`; confirma que el bucket sea privado y que las tablas `actas` y `acta_candidate_votes` aparezcan habilitadas para Realtime.
 6. En **Authentication**, desactiva el registro publico y activa la confirmacion de correo. Configura el SMTP que el equipo elija. No se fijo un proveedor.
@@ -70,7 +70,7 @@ order by c.office;
 El resultado esperado es una fila por dignidad con `candidates = 5` y `organizations = 5`. La informacion real no esta en el repositorio y no se debe reemplazar con datos inventados.
 14. Valida RLS con sesiones reales de prueba para cada rol. SQL Editor opera con privilegios administrativos y no sirve para comprobar que RLS limita correctamente a un usuario.
 15. Antes de aceptar fotos, calibra `EXPO_PUBLIC_IMAGE_SHARPNESS_THRESHOLD` con fotografias de prueba reales tomadas con los dispositivos y condiciones de uso. La app bloquea la aceptacion mientras la variable falte o no sea valida; no uses un umbral supuesto.
-16. Si un proyecto de desarrollo aplico una version anterior, ejecuta unicamente las migraciones que falten, en orden. Para cambios futuros, crea una nueva migracion numerada (`0006_...sql` o superior) y pruebala en desarrollo. No reescribas una migracion que ya se aplico ni la ejecutes sobre produccion sin respaldo y verificacion.
+16. Si un proyecto de desarrollo aplico una version anterior, ejecuta unicamente las migraciones que falten, en orden. Para cambios futuros, crea una nueva migracion numerada (`0007_...sql` o superior) y pruebala en desarrollo. No reescribas una migracion que ya se aplico ni la ejecutes sobre produccion sin respaldo y verificacion.
 
 ## Vigencia de enlaces y sesiones
 
@@ -99,6 +99,7 @@ En **Authentication → Email Templates**, los enlaces de confirmación y recupe
 <p>We received a request to reset your password. Follow the link below to choose a new one.</p>
 <p><a href="{{ .ConfirmationURL }}">Reset password</a></p>
 <p>If you didn't request this, you can safely ignore this email.</p>
+
 ```
 
 Guarda ambos cambios en Supabase y solicita un enlace de recuperación nuevo. Los mensajes enviados antes de corregir la plantilla no se pueden reparar.
@@ -154,4 +155,5 @@ El bucket debe mostrar `public = false`; Realtime debe listar `actas` y `acta_ca
 - `0002_territory_assignments.sql` reemplaza las escrituras directas de asignacion por funciones transaccionales con validacion de rol y jurisdiccion. El reemplazo revoca la asignacion anterior y crea la nueva en una sola transaccion; la autoria original de las actas no cambia.
 - `0005_complete_database_contract.sql` corrige la referencia GPS para que no dependa del orden de sincronizacion, limita lectura de datos personales, agrega indices de consultas usadas y habilita Realtime para el tablero.
 - `0006_station_sex_and_list_numbers.sql` incorpora sexo a las mesas y numero de lista a las organizaciones. Las mesas preexistentes quedan con sexo `NULL` hasta clasificarlas.
+- `0007_precinct_coordinator_creates_stations.sql` retira el insert directo de mesas a `authenticated` y lo sustituye por `create_polling_station`, que valida rol, asignacion, numero positivo, sexo y unicidad dentro del recinto. El coordinador provincial crea recintos y coordinadores, pero no mesas.
 - Las migraciones no crean usuarios Auth, configuran SMTP, despliegan Edge Functions, configuran secretos de Gemini ni cargan datos territoriales o candidaturas.

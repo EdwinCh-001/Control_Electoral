@@ -19,4 +19,63 @@
   --color-ink-muted: rgb(67 23 99 / 0.72);
   --color-on-primary: #ffffff;
   --color-on-primary-muted: rgb(255 255 255 / 0.86);
+
+  --color-primary-soft-bg: rgb(91 35 132 / 0.10);
+  --color-accent-soft: rgb(230 231 58 / 0.24);
+  --color-surface-soft: rgb(247 245 250 / 0.92);
+  --color-background-glass: rgb(255 255 255 / 0.94);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --font-display: "AvenirNext-DemiBold";
+  --font-body: "AvenirNext-Regular";
+  --font-body-medium: "AvenirNext-Medium";
+  --font-body-bold: "AvenirNext-DemiBold";
+  --font-mono: "Menlo";
+
+  --text-display: 30px;
+  --text-display--line-height: 34px;
+  --text-display--letter-spacing: -0.4px;
+
+  --text-title: 25px;
+  --text-title--line-height: 29px;
+  --text-title--letter-spacing: -0.2px;
+
+  --text-subtitle: 15px;
+  --text-subtitle--line-height: 21px;
+
+  --text-section: 16px;
+  --text-section--line-height: 21px;
+  --text-section--letter-spacing: 0.1px;
+
+  --text-body: 15px;
+  --text-body--line-height: 21px;
+
+  --text-small: 13px;
+  --text-small--line-height: 18px;
+
+  --text-label: 13px;
+  --text-label--line-height: 17px;
+  --text-label--letter-spacing: 0.2px;
+
+  --text-button: 16px;
+  --text-button--line-height: 20px;
+
+  --text-numeric: 28px;
+  --text-numeric--line-height: 32px;
+}
+
+/* Las fuentes nativas se resuelven por plataforma sin tocar los componentes. */
+@layer theme {
+  :root {
+    @variant android {
+      --font-display: "sans-serif";
+      --font-body: "sans-serif";
+      --font-body-medium: "sans-serif-medium";
+      --font-body-bold: "sans-serif-medium";
+      --font-mono: "monospace";
+    }
+  }
 }

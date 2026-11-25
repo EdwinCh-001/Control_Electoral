@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../../../app/navigationTypes";
-import { colors, fonts, radii, spacing } from "../../../shared/presentation/theme";
+import { colors } from "../../../shared/presentation/theme";
 import {
   AuthPage,
   EmptyState,
@@ -118,26 +118,30 @@ export function ActaHistoryScreen({ navigation, route }: Props) {
           message="El sistema aún no registra movimientos para esta acta."
         />
       ) : (
-        <View style={styles.timeline}>
+        <View className={classes.timeline}>
           {entries.map((entry, index) => {
             const presentation = operationPresentation[entry.operation];
             const isLast = index === entries.length - 1;
             return (
-              <View key={entry.id} style={styles.timelineItem}>
-                <View style={styles.timelineRail}>
+              <View key={entry.id} className={classes.timelineItem}>
+                <View className={classes.timelineRail}>
                   <View
-                    style={[
-                      styles.timelineDot,
-                      { backgroundColor: presentation.color },
-                    ]}
+                    className={classes.timelineDot}
+                    style={{ backgroundColor: presentation.color }}
                   />
-                  {!isLast ? <View style={styles.timelineLine} /> : null}
+                  {!isLast ? <View className={classes.timelineLine} /> : null}
                 </View>
-                <View style={[styles.entry, !isLast ? styles.entryBorder : null]}>
-                  <View style={styles.entryHeader}>
-                    <View style={styles.entryCopy}>
-                      <Text style={styles.title}>{presentation.title}</Text>
-                      <Text style={styles.meta}>
+                <View
+                  className={
+                    !isLast
+                      ? `${classes.entry} ${classes.entryBorder}`
+                      : classes.entry
+                  }
+                >
+                  <View className={classes.entryHeader}>
+                    <View className={classes.entryCopy}>
+                      <Text className={classes.title}>{presentation.title}</Text>
+                      <Text className={classes.meta}>
                         {entry.entityName === "actas" ? "Acta" : "Votación"} ·{" "}
                         {entry.actorName}
                       </Text>
@@ -147,29 +151,29 @@ export function ActaHistoryScreen({ navigation, route }: Props) {
                       tone={presentation.tone}
                     />
                   </View>
-                  <Text style={styles.metaValue}>
+                  <Text className={classes.metaValue}>
                     Dispositivo: {formatTimestamp(entry.deviceModifiedAt)}
                   </Text>
-                  <Text style={styles.metaValue}>
+                  <Text className={classes.metaValue}>
                     Sistema: {formatTimestamp(entry.serverReceivedAt)}
                   </Text>
                   {entry.changes.map((change, changeIndex) => (
                     <View
                       key={`${entry.id}-${changeIndex}`}
-                      style={styles.change}
+                      className={classes.change}
                     >
-                      <Text style={styles.changeLabel}>{change.label}</Text>
-                      <View style={styles.changeValues}>
-                        <View style={styles.changeSide}>
-                          <Text style={styles.changeCaption}>Antes</Text>
-                          <Text style={styles.changePrevious}>
+                      <Text className={classes.changeLabel}>{change.label}</Text>
+                      <View className={classes.changeValues}>
+                        <View className={classes.changeSide}>
+                          <Text className={classes.changeCaption}>Antes</Text>
+                          <Text className={classes.changePrevious}>
                             {formatAuditValue(change.previousValue)}
                           </Text>
                         </View>
-                        <Text style={styles.changeArrow}>→</Text>
-                        <View style={styles.changeSide}>
-                          <Text style={styles.changeCaption}>Ahora</Text>
-                          <Text style={styles.changeNew}>
+                        <Text className={classes.changeArrow}>→</Text>
+                        <View className={classes.changeSide}>
+                          <Text className={classes.changeCaption}>Ahora</Text>
+                          <Text className={classes.changeNew}>
                             {formatAuditValue(change.newValue)}
                           </Text>
                         </View>
@@ -186,127 +190,25 @@ export function ActaHistoryScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  timeline: {
-    gap: 0,
-  },
-  timelineItem: {
-    flexDirection: "row",
-    gap: spacing.md,
-  },
-  timelineRail: {
-    alignItems: "center",
-    paddingTop: spacing.lg,
-    width: 12,
-  },
-  timelineDot: {
-    borderRadius: 5,
-    height: 10,
-    width: 10,
-  },
-  timelineLine: {
-    backgroundColor: colors.navyBorder,
-    flex: 1,
-    marginTop: 4,
-    width: 1,
-  },
-  entry: {
-    flex: 1,
-    gap: spacing.xs,
-    paddingBottom: spacing.lg,
-  },
-  entryBorder: {
-    borderBottomColor: colors.border,
-    borderBottomWidth: 1,
-    marginBottom: spacing.md,
-  },
-  entryHeader: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: spacing.sm,
-    justifyContent: "space-between",
-  },
-  entryCopy: {
-    flex: 1,
-    gap: 1,
-  },
-  title: {
-    color: colors.white,
-    fontFamily: fonts.bodyBold,
-    fontSize: 16,
-    lineHeight: 21,
-  },
-  meta: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  metaBlock: {
-    borderTopColor: colors.navyBorder,
-    borderTopWidth: 1,
-    gap: 1,
-    paddingTop: spacing.sm,
-  },
-  metaLabel: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 14,
-  },
-  metaValue: {
-    color: colors.bone,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  change: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-    padding: spacing.sm,
-  },
-  changeLabel: {
-    color: colors.bone,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  changeValues: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  changeSide: {
-    flex: 1,
-    gap: 1,
-  },
-  changeCaption: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 14,
-  },
-  changePrevious: {
-    color: colors.boneMuted,
-    fontFamily: fonts.mono,
-    fontSize: 12,
-    lineHeight: 17,
-    textDecorationLine: "line-through",
-  },
-  changeNew: {
-    color: colors.emerald,
-    fontFamily: fonts.mono,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  changeArrow: {
-    color: colors.boneMuted,
-    fontFamily: fonts.display,
-    fontSize: 18,
-    lineHeight: 20,
-  },
-});
+const classes = {
+  timeline: "gap-0",
+  timelineItem: "flex-row gap-3",
+  timelineRail: "w-[12px] items-center pt-4",
+  timelineDot: "h-[10px] w-[10px] rounded-[5px]",
+  timelineLine: "mt-1 w-[1px] flex-1 bg-border",
+  entry: "flex-1 gap-1 pb-4",
+  entryBorder: "mb-3 border-b border-border",
+  entryHeader: "flex-row items-start justify-between gap-2",
+  entryCopy: "flex-1 gap-[1px]",
+  title: "font-body-bold text-[16px] leading-[21px] text-ink",
+  meta: "font-body text-[12px] leading-[17px] text-ink-muted",
+  metaValue: "font-body text-[12px] leading-[17px] text-ink",
+  change: "mt-1 gap-1 rounded-sm border border-border bg-surface p-2",
+  changeLabel: "font-body-medium text-[12px] leading-4 text-ink",
+  changeValues: "flex-row items-center gap-2",
+  changeSide: "flex-1 gap-[1px]",
+  changeCaption: "font-body text-[12px] leading-[14px] text-ink-muted",
+  changePrevious: "font-mono text-[12px] leading-[17px] text-ink-muted line-through",
+  changeNew: "font-mono text-[12px] leading-[17px] text-primary",
+  changeArrow: "font-display text-[18px] leading-[20px] text-ink-muted",
+} as const;

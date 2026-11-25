@@ -4,7 +4,6 @@ import {
   Image,
   Modal,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -20,7 +19,7 @@ import { History } from "lucide-react-native";
 import type { RootStackParamList } from "../../../app/navigationTypes";
 import { useAppSelector } from "../../../app/store";
 import type { NoticeKind } from "../../../shared/presentation/messages";
-import { colors, fonts, radii, spacing } from "../../../shared/presentation/theme";
+import { colors } from "../../../shared/presentation/theme";
 import {
   AuthPage,
   Feedback,
@@ -697,7 +696,7 @@ export function ActaEditorScreen({ navigation, route }: Props) {
           accessibilityLabel="Ver historial de cambios"
           accessibilityRole="button"
           onPress={() => navigation.navigate("ActaHistory", { actaId })}
-          style={styles.historyButton}
+          className={classes.historyButton}
         >
           <History color={colors.primaryDark} size={18} strokeWidth={2.2} />
         </Pressable>
@@ -710,8 +709,8 @@ export function ActaEditorScreen({ navigation, route }: Props) {
           transparent
           visible={showSubmitConfirmation}
         >
-          <View style={styles.confirmationBackdrop}>
-            <View style={styles.confirmationCard}>
+          <View className={classes.confirmationBackdrop}>
+            <View className={classes.confirmationCard}>
               <Feedback
                 kind="warning"
                 title={
@@ -721,22 +720,22 @@ export function ActaEditorScreen({ navigation, route }: Props) {
                 }
                 message="Verifica los datos del acta. Al confirmar, quedará autorizada para su envío."
               />
-              <View style={styles.confirmationSummary}>
-                <View style={styles.confirmationRow}>
-                  <Text style={styles.confirmationLabel}>Recinto</Text>
-                  <Text style={styles.confirmationValue}>
+              <View className={classes.confirmationSummary}>
+                <View className={classes.confirmationRow}>
+                  <Text className={classes.confirmationLabel}>Recinto</Text>
+                  <Text className={classes.confirmationValue}>
                     {draft.precinctName}
                   </Text>
                 </View>
-                <View style={styles.confirmationRow}>
-                  <Text style={styles.confirmationLabel}>Mesa</Text>
-                  <Text style={styles.confirmationValue}>
+                <View className={classes.confirmationRow}>
+                  <Text className={classes.confirmationLabel}>Mesa</Text>
+                  <Text className={classes.confirmationValue}>
                     {draft.stationNumber}
                   </Text>
                 </View>
-                <View style={styles.confirmationRow}>
-                  <Text style={styles.confirmationLabel}>Acta</Text>
-                  <Text style={styles.confirmationValue}>
+                <View className={classes.confirmationRow}>
+                  <Text className={classes.confirmationLabel}>Acta</Text>
+                  <Text className={classes.confirmationValue}>
                     {draft.office === "mayor" ? "Alcaldía" : "Prefectura"}
                   </Text>
                 </View>
@@ -771,9 +770,9 @@ export function ActaEditorScreen({ navigation, route }: Props) {
         description={`${draft.office === "mayor" ? "Alcaldía" : "Prefectura"}${draft.stationSex ? ` · ${draft.stationSex === "female" ? "Mujeres" : "Hombres"}` : ""}${draft.correctionMode ? " · Corrección" : ""}.`}
       />
 
-      <View style={styles.statusRow}>
+      <View className={classes.statusRow}>
         <StatusChip label={status.label} tone={status.tone} />
-        <Text style={styles.statusMeta}>
+        <Text className={classes.statusMeta}>
           {draft.correctionMode ? "Corrección" : "Captura"} ·{" "}
           {draft.office === "mayor" ? "Alcaldía" : "Prefectura"}
         </Text>
@@ -811,17 +810,17 @@ export function ActaEditorScreen({ navigation, route }: Props) {
       {(!canEditResults || editorTab === "evidence" || !draft.photoUri) ? (
         <>
           {draft.photoUri ? (
-            <View style={styles.evidenceSection}>
-              <View style={styles.photoHeader}>
+            <View className={classes.evidenceSection}>
+              <View className={classes.photoHeader}>
                 <SectionTitle>Foto del acta</SectionTitle>
                 <StatusChip label="Guardada" tone="success" />
               </View>
-              <View style={styles.photoFrame}>
+              <View className={classes.photoFrame}>
                 <Image
                   accessibilityLabel="Fotografía del acta guardada en este dispositivo"
                   resizeMode="contain"
                   source={{ uri: draft.photoUri }}
-                  style={styles.photo}
+                  className={classes.photo}
                 />
               </View>
               <ActaLocationCard
@@ -845,24 +844,24 @@ export function ActaEditorScreen({ navigation, route }: Props) {
           ) : null}
 
           {showCamera && canCapture ? (
-            <View style={styles.cameraSection}>
+            <View className={classes.cameraSection}>
               <SectionTitle>Tomar foto</SectionTitle>
-              <Text style={styles.muted}>
+              <Text className={classes.muted}>
                 Apoya el teléfono y procura que se lean todos los números. Evita
                 sombras y movimientos.
               </Text>
               {cameraPermission?.granted ? (
-                <View style={styles.cameraFrame}>
+                <View className={classes.cameraFrame}>
                   <CameraView
                     ref={cameraRef}
                     facing="back"
                     mode="picture"
-                    style={styles.camera}
+                    style={{ height: 340, width: "100%" }}
                   />
                 </View>
               ) : (
-                <View style={styles.permission}>
-                  <Text style={styles.muted}>
+                <View className={classes.permission}>
+                  <Text className={classes.muted}>
                     La cámara necesita permiso para fotografiar el acta.
                   </Text>
                   <SecondaryButton
@@ -893,7 +892,7 @@ export function ActaEditorScreen({ navigation, route }: Props) {
           ) : null}
 
           {draft.photoUri && !canEditResults ? (
-            <View style={styles.actions}>
+            <View className={classes.actions}>
               {draft.status === "pending" ||
               (draft.status === "failed" && draft.failureStage === "ocr") ? (
                 <SecondaryButton
@@ -916,7 +915,7 @@ export function ActaEditorScreen({ navigation, route }: Props) {
       ) : null}
 
       {canEditResults && (editorTab === "votes" || !draft.photoUri) ? (
-        <View style={styles.form}>
+        <View className={classes.form}>
           <SectionTitle>Revisa los números del acta</SectionTitle>
           <Feedback
             kind="info"
@@ -926,13 +925,13 @@ export function ActaEditorScreen({ navigation, route }: Props) {
           {field("blankVotes", "Votos en blanco")}
           {field("nullVotes", "Votos nulos")}
           {draft.candidateVotes.map((candidate) => (
-            <View key={candidate.candidateId} style={styles.candidateRow}>
-              <View style={styles.candidateHead}>
-                <View style={styles.candidateCopy}>
-                  <Text style={styles.candidateName}>
+            <View key={candidate.candidateId} className={classes.candidateRow}>
+              <View className={classes.candidateHead}>
+                <View className={classes.candidateCopy}>
+                  <Text className={classes.candidateName}>
                     {candidate.candidateName}
                   </Text>
-                  <Text style={styles.organization}>
+                  <Text className={classes.organization}>
                     {candidate.organizationName}
                   </Text>
                 </View>
@@ -972,189 +971,35 @@ export function ActaEditorScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  historyButton: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    height: 38,
-    justifyContent: "center",
-    width: 38,
-  },
-  evidenceSection: {
-    gap: spacing.md,
-  },
-  cameraSection: {
-    gap: spacing.sm,
-  },
-  candidateRow: {
-    borderTopColor: colors.border,
-    borderTopWidth: 1,
-    paddingTop: spacing.md,
-  },
-  muted: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  statusRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.sm,
-    justifyContent: "space-between",
-  },
-  statusMeta: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  photoCard: {
-    gap: spacing.md,
-  },
-  photoHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  cardEyebrow: {
-    color: colors.boneMuted,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 12,
-    letterSpacing: 0.4,
-  },
-  photoFrame: {
-    backgroundColor: colors.navy,
-    borderColor: colors.navyBorder,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  photo: {
-    height: 290,
-    width: "100%",
-  },
-  photoCaption: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  cameraCard: {
-    gap: spacing.sm,
-  },
-  cameraFrame: {
-    borderColor: colors.navyBorder,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  camera: {
-    height: 340,
-    width: "100%",
-  },
-  permission: {
-    alignItems: "center",
-    backgroundColor: colors.navy,
-    borderColor: colors.navyBorder,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    gap: spacing.md,
-    justifyContent: "center",
-    minHeight: 180,
-    padding: spacing.lg,
-  },
-  actions: {
-    gap: spacing.xs,
-    marginTop: spacing.sm,
-  },
-  form: {
-    gap: spacing.sm,
-  },
-  candidate: {
-    backgroundColor: colors.navy,
-    borderColor: colors.navyBorder,
-    borderLeftColor: colors.red,
-    borderLeftWidth: 3,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    marginTop: spacing.xs,
-    padding: spacing.md,
-  },
-  candidateHead: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: spacing.sm,
-    justifyContent: "space-between",
-    marginBottom: spacing.xs,
-  },
-  candidateCopy: {
-    flex: 1,
-  },
-  candidateMark: {
-    backgroundColor: colors.red,
-    borderRadius: 3,
-    height: 7,
-    marginTop: 6,
-    width: 7,
-  },
-  candidateName: {
-    color: colors.white,
-    fontFamily: fonts.bodyBold,
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  organization: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 2,
-  },
-  confirmationBackdrop: {
-    alignItems: "center",
-    backgroundColor: "rgba(4, 12, 20, 0.78)",
-    flex: 1,
-    justifyContent: "center",
-    padding: spacing.lg,
-  },
-  confirmationCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    gap: spacing.md,
-    maxWidth: 480,
-    padding: spacing.lg,
-    width: "100%",
-  },
-  confirmationSummary: {
-    backgroundColor: colors.navy,
-    borderColor: colors.navyBorder,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    gap: spacing.xs,
-    padding: spacing.md,
-  },
-  confirmationRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: spacing.sm,
-    justifyContent: "space-between",
-  },
-  confirmationLabel: {
-    color: colors.boneMuted,
-    fontFamily: fonts.body,
-    fontSize: 12,
-  },
-  confirmationValue: {
-    color: colors.white,
-    flexShrink: 1,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-    textAlign: "right",
-  },
-});
+const classes = {
+  historyButton: "h-[38px] w-[38px] items-center justify-center rounded-md border border-border bg-surface",
+  evidenceSection: "gap-3",
+  cameraSection: "gap-2",
+  candidateRow: "border-t border-border pt-3",
+  muted: "font-body text-[14px] leading-5 text-ink-muted",
+  statusRow: "flex-row items-center justify-between gap-2",
+  statusMeta: "font-body text-[12px] leading-[17px] text-ink-muted",
+  photoCard: "gap-3",
+  photoHeader: "flex-row items-center justify-between",
+  cardEyebrow: "font-body-medium text-[12px] tracking-[0.4px] text-ink-muted",
+  photoFrame: "overflow-hidden rounded-md border border-border bg-background",
+  photo: "h-[290px] w-full",
+  photoCaption: "font-body text-[12px] leading-[17px] text-ink-muted",
+  cameraCard: "gap-2",
+  cameraFrame: "overflow-hidden rounded-md border border-border",
+  permission: "min-h-[180px] items-center justify-center gap-3 rounded-md border border-border bg-background p-4",
+  actions: "mt-2 gap-1",
+  form: "gap-2",
+  candidate: "mt-1 rounded-md border border-border border-l-[3px] border-l-primary bg-background p-3",
+  candidateHead: "mb-1 flex-row items-start justify-between gap-2",
+  candidateCopy: "flex-1",
+  candidateMark: "mt-[6px] h-[7px] w-[7px] rounded-[3px] bg-primary",
+  candidateName: "font-body-bold text-[15px] leading-5 text-ink",
+  organization: "mt-[2px] font-body text-[12px] leading-[17px] text-ink-muted",
+  confirmationBackdrop: "flex-1 items-center justify-center bg-[rgba(4,12,20,0.78)] p-4",
+  confirmationCard: "w-full max-w-[480px] gap-3 rounded-lg border border-border bg-surface p-4",
+  confirmationSummary: "gap-1 rounded-md border border-border bg-background p-3",
+  confirmationRow: "flex-row items-center justify-between gap-2",
+  confirmationLabel: "font-body text-[12px] text-ink-muted",
+  confirmationValue: "shrink text-right font-body-medium text-[13px] text-ink",
+} as const;

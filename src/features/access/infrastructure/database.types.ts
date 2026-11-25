@@ -287,6 +287,14 @@ export interface Database {
         Args: { p_polling_station_id: string; p_observer_id: string | null };
         Returns: undefined;
       };
+      create_polling_station: {
+        Args: {
+          p_precinct_id: string;
+          p_station_number: number;
+          p_sex: PollingStationSex;
+        };
+        Returns: string;
+      };
     };
     Enums: {
       app_role: AppRole;

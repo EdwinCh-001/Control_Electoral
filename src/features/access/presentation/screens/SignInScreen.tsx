@@ -4,9 +4,9 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Lock, Mail } from "lucide-react-native";
+import { Image } from "expo-image";
 import { StyleSheet, View } from "react-native";
 
-import { spacing } from "../../../../shared/presentation/theme";
 import { useAuthRepository } from "../AuthRepositoryContext";
 import { setSession } from "../authSlice";
 import { useAppDispatch } from "../../../../app/store";
@@ -19,6 +19,9 @@ import {
   PrimaryButton,
   SecondaryButton,
 } from "../components/AuthUi";
+
+const loginLogo = require("../../../../../assets/images/logo.webp");
+const loginFooter = require("../../../../../assets/images/fondo_bottom.png");
 
 const signInSchema = z.object({
   email: z.email("Ingresa un correo válido.").trim().toLowerCase(),
@@ -57,8 +60,23 @@ export function SignInScreen({ navigation }: Props) {
   });
 
   return (
-    <AuthPage>
-      <View style={styles.formOffset}>
+    <AuthPage
+      footerBackground={
+        <Image
+          accessible={false}
+          contentFit="cover"
+          source={loginFooter}
+          style={styles.footerBackground}
+        />
+      }
+    >
+      <View className={classes.formOffset}>
+        <Image
+          accessibilityLabel="Acción Democrática Nacional"
+          contentFit="contain"
+          source={loginLogo}
+          style={styles.logo}
+        />
         <PageTitle
           eyebrow="Acceso"
           title="Entra a tu mesa"
@@ -103,8 +121,22 @@ export function SignInScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  formOffset: {
-    gap: spacing.lg,
-    marginTop: spacing.lg,
+  logo: {
+    alignSelf: "center",
+    height: 90,
+    maxWidth: 260,
+    width: "100%",
+  },
+  footerBackground: {
+    bottom: 0,
+    height: 180,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    width: "100%",
   },
 });
+
+const classes = {
+  formOffset: "mt-4 gap-4",
+} as const;

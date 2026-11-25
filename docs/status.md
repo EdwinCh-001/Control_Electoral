@@ -15,19 +15,19 @@ La IA debe leer `AGENTS.md`, esa ficha y solo los requerimientos, supuestos y AD
 ## Auditoría del 2026-11-24
 
 - FEAT-01 a FEAT-04 siguen en **Implementada**: pasan `npx expo lint` y `npx tsc --noEmit`, pero todavía no se completaron los recorridos manuales en Expo Go/APK. No se marcan como **Verificada** hasta que el equipo execute las pruebas de cada ficha.
-- FEAT-05 permanece **Pendiente**. No se implementó ni se verificó Crashlytics, el tablero provincial ni el APK de EAS.
-- ADR-07 quedó preparado en la infraestructura: `src/global.css`, `metro.config.js` con `withUniwindConfig` y la importación desde `src/app/App.tsx`. `GestureHandlerRootView` ya estaba presente para Bottom Sheet. Faltan instalar `@gorhom/bottom-sheet`, `lottie-react-native`, `@lottiefiles/dotlottie-react` y `uniwind` con `tailwindcss`; la paleta de colores está pendiente y no se inventó ninguna.
+- FEAT-05 quedó **Implementada** en tablero, detalle y configuración de APK; Crashlytics sigue **Pendiente** y no se marca **Verificada**.
+- ADR-07 quedó implementado con `src/global.css`, `metro.config.js` con `withUniwindConfig`, `@gorhom/bottom-sheet`, `lottie-react-native`, Reanimated, Lucide y la paleta ADN-7. `GestureHandlerRootView` ya estaba presente para Bottom Sheet.
 - Las dependencias nativas y la validación con APK de EAS siguen en FEAT-05. No se marcan flujos como verificados por este cambio de infraestructura.
-- El coordinador de recinto se asigna únicamente al crear su cuenta; la pantalla de territorio solo lo consulta. La asignación/reemplazo de veedores en mesas sí se administra después del registro.
+- El coordinador de recinto se asigna únicamente al crear su cuenta; el coordinador provincial solo consulta esa asignación. El coordinador de recinto crea sus mesas y administra la asignación/reemplazo de veedores después del registro.
 
 ## Auditoría del 2026-11-25
 
-- FEAT-05 quedó **Implementada**: tablero provincial con agregación pura, detalle de acta con fotografía, coordenadas y mapa Leaflet/OpenStreetMap en WebView, suscripción Realtime, reporte de fallos con Firebase Crashlytics y configuración `eas.json` para APK.
-- Solo se usó lo decidido en los ADR: Supabase, SQLite/NetInfo, Redux/arquitectura limpia, cámara/imagen/Gemini vía Edge Function, `expo-location` + WebView, Firebase Crashlytics y React Navigation + Bottom Sheet + Reanimated + Uniwind. `@react-native-firebase/app` y `@react-native-firebase/crashlytics` son el SDK de la decisión ADR-06; EAS es el medio de entrega ya citado en ADR-06/RNF-04.
+- FEAT-05 quedó **Implementada**: tablero provincial con agregación pura, detalle de acta con fotografía, coordenadas y mapa Leaflet/OpenStreetMap en WebView, suscripción Realtime y configuración `eas.json` para APK. Crashlytics quedó fuera del runtime según la decisión posterior del equipo.
+- Solo se usó lo decidido en los ADR: Supabase, SQLite/NetInfo, Redux/arquitectura limpia, cámara/imagen/Gemini vía Edge Function, `expo-location` + WebView y React Navigation + Bottom Sheet + Reanimated + Lottie + Uniwind. EAS es el medio de entrega ya citado en ADR-06/RNF-04.
 - No se agregó Sentry, NativeWind, proveedor de mapas adicional a OpenStreetMap, proveedor SMTP ni modelo de Gemini.
-- **Pendiente de verificación manual:** provocar el fallo controlado y confirmarlo en Firebase Crashlytics, comprobar el aislamiento RF-12 con varios roles, generar/instalar el APK de EAS y ejecutar el recorrido completo en Android. Por eso FEAT-05 no se marca como **Verificada**.
+- **Pendiente de verificación manual:** comprobar el aislamiento RF-12 con varios roles, generar/instalar el APK de EAS y ejecutar el recorrido completo en Android. Firebase Crashlytics no se reactivará hasta que el usuario complete su verificación; por eso FEAT-05 no se marca como **Verificada**.
 - El mapa del detalle usa Leaflet y mosaicos de OpenStreetMap en WebView; marca las coordenadas propias, sin geocodificar direcciones ni usar API key. La advertencia GPS de S-02 se muestra pero no bloquea la revisión.
-- Falta el archivo `google-services.json` del proyecto Firebase del equipo para compilar el APK; no se inventó ni se incluyó configuración secreta. Con ese archivo, el comando es `npx eas-cli build --platform android --profile preview`.
+- No se incluye `google-services.json`: Crashlytics está en pausa y no se inventó configuración secreta. El comando previsto para el APK sigue siendo `npx eas-cli build --platform android --profile preview`; el archivo Firebase se pedirá solo cuando se reactive la observabilidad.
 - El intento de cargar el SDK de Firebase de forma diferida no fue suficiente en Expo Go: el runtime seguía resolviendo el módulo nativo `NativeRNFBTurboApp`. Por eso Crashlytics se retiró temporalmente del runtime y de las dependencias.
 
 ## Ajuste del 2026-11-25
@@ -68,6 +68,16 @@ La IA debe leer `AGENTS.md`, esa ficha y solo los requerimientos, supuestos y AD
 - El coordinador provincial crea coordinadores de recinto en dos pasos: datos de la persona y luego recinto libre. El veedor se registra en un solo paso; sus mesas se asignan después desde **Equipo**.
 - El formulario de acceso quedó ligeramente más abajo y la contraseña se puede mostrar u ocultar en inicio de sesión y cambio de clave.
 - Pasan `npx tsc --noEmit`, `npx expo lint` y `npx expo export --platform android`. Sigue pendiente el recorrido manual en Expo Go, por lo que ningún flujo se marca como **Verificada**.
+
+## Alta de mesas, Lottie, Uniwind y flow-lines del 2026-11-25
+
+- El coordinador de recinto crea las mesas de su recinto desde la pestaña **Nueva mesa**; el coordinador provincial solo crea recintos y coordinadores. Se registró el supuesto S-07 y se amplió FEAT-02 con este criterio.
+- `create_polling_station` valida en Supabase rol, asignación al recinto, número positivo, sexo y unicidad. La migración `0007` retira el insert directo de `polling_stations` a `authenticated` y otorga ejecución solo de la función; no se aplicó sobre producción.
+- `TerritoryRepository.createStation` y su implementación Supabase exponen el alta al dominio sin acoplarlo a Supabase. La UI solo ofrece el alta al rol `precinct_coordinator`.
+- Se integraron animaciones Lottie ADN-7 locales en el estado de carga global, las fases de arranque y los avisos de éxito, advertencia y error sin modificar los textos ni la jerarquía visual.
+- La migración a Uniwind quedó completa: no existe `StyleSheet.create` en `src/`; los estilos estáticos son `className` y los valores dinámicos siguen en `style` inline. Los tokens de ADN-7, tipografías y radios viven en `src/global.css`.
+- El fondo global de flow-lines se monta en la raíz y en `Screen` con líneas suaves en morado/amarillo, `pointerEvents="none"` y sin opacar tarjetas ni texto.
+- Pasan `npx tsc --noEmit`, `npx expo lint` y `npx expo export --platform android`. Sigue pendiente el recorrido manual en Expo Go, además de aplicar la migración `0007` en desarrollo con respaldo previo. Crashlytics continúa en pausa a la espera de la verificación del usuario.
 
 ## Estados
 

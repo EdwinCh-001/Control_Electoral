@@ -6,11 +6,11 @@ import {
   type ComponentProps,
   type ReactNode,
 } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { Platform, Text, View } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
 import { WebView } from "@expo/dom-webview";
 
-import { colors, fonts, radii, spacing } from "../theme";
+import { colors } from "../theme";
 import { RelativeMap, type RelativeMapMarker } from "./RelativeMap";
 
 type Props = ComponentProps<typeof RelativeMap>;
@@ -241,7 +241,7 @@ export function GeoMap({ markers, onSelectMarker, ...relativeProps }: Props) {
       fallback={fallback}
       onError={() => setFailedKey(markersKey)}
     >
-      <View style={styles.wrapper}>
+      <View className={classes.wrapper}>
         <WebView
           accessibilityLabel={relativeProps.accessibilityLabel}
           onMessage={(event) => {
@@ -267,40 +267,23 @@ export function GeoMap({ markers, onSelectMarker, ...relativeProps }: Props) {
             }
           }}
           source={{ uri: mapUri }}
-          style={[styles.webView, { height: relativeProps.height ?? 196 }]}
+          style={{
+            backgroundColor: colors.surface,
+            height: relativeProps.height ?? 196,
+            width: "100%",
+          }}
         />
-        <View style={styles.attribution} pointerEvents="none">
-          <Text style={styles.attributionText}>© OpenStreetMap contributors</Text>
+        <View className={classes.attribution} pointerEvents="none">
+          <Text className={classes.attributionText}>© OpenStreetMap contributors</Text>
         </View>
       </View>
     </WebViewBoundary>
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    borderRadius: radii.lg,
-    overflow: "hidden",
-    position: "relative",
-  },
-  webView: {
-    backgroundColor: colors.surface,
-    width: "100%",
-  },
-  attribution: {
-    backgroundColor: colors.background,
-    borderColor: colors.border,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-    position: "absolute",
-    right: spacing.xs,
-    top: spacing.xs,
-  },
-  attributionText: {
-    color: colors.inkMuted,
-    fontFamily: fonts.body,
-    fontSize: 10,
-  },
-});
+const classes = {
+  wrapper: "relative overflow-hidden rounded-lg",
+  attribution:
+    "absolute right-1 top-1 rounded-sm border border-border bg-background px-1 py-[2px]",
+  attributionText: "font-body text-[10px] text-ink-muted",
+} as const;

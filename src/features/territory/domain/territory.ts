@@ -42,6 +42,11 @@ export interface TerritoryRepository {
     provinceId: string,
   ): Promise<TerritoryManagement>;
   assignObserver(stationId: string, observerId: string | null): Promise<void>;
+  createStation(input: {
+    precinctId: string;
+    stationNumber: number;
+    sex: PollingStationSex;
+  }): Promise<void>;
   createPrecinct(input: {
     cantonId: string;
     parish: string;
