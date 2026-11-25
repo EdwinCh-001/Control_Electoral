@@ -78,7 +78,30 @@ En **Authentication → Sign In / Providers → Email**, configura **Email OTP e
 
 En **Authentication → Sessions**, configura **Inactivity timeout** en 30 días y deja **Time-box user sessions** sin límite. Los límites de sesión requieren un plan Supabase Pro o superior. Mantén **JWT expiry** en el valor recomendado de 3600 segundos: la app conserva la sesión mediante el refresh token y lo renueva automáticamente, no necesita un JWT de larga duración. La app móvil guarda la sesión en SecureStore.
 
-La app inicia sesión normalmente con PKCE. La solicitud de recuperación usa un cliente separado para que el enlace pueda abrirse en el navegador aunque se haya solicitado desde el móvil; la web procesa el token de recuperación recibido y lo elimina de la URL al crear la sesión.
+La app inicia sesión normalmente con PKCE. La solicitud de recuperación usa un cliente separado para que el enlace pueda abrirse en el navegador aunque se haya solicitado desde el móvil; la web procesa el token de recuperación recibido y lo elimina de la URL al crear la sesión. Después de actualizar este flujo, vuelve a desplegar `web/` y recompila/reinstala la app móvil antes de solicitar un enlace nuevo; las versiones anteriores pueden seguir generando enlaces con el flujo PKCE.
+
+## Plantillas de correo de Auth
+
+En **Authentication → Email Templates**, los enlaces de confirmación y recuperación deben usar `{{ .ConfirmationURL }}`. No uses `{{ .RedirectTo }}` como destino directo del enlace: esa variable solo contiene la URL de destino y no lleva el token de un solo uso, por lo que la web la rechaza como inválida.
+
+**Confirm signup:**
+
+```html
+<h2>Confirm your email address</h2>
+<p>Follow the link below to confirm this email address and finish signing up.</p>
+<p><a href="{{ .ConfirmationURL }}">Confirm email address</a></p>
+```
+
+**Reset password:**
+
+```html
+<h2>Reset your password</h2>
+<p>We received a request to reset your password. Follow the link below to choose a new one.</p>
+<p><a href="{{ .ConfirmationURL }}">Reset password</a></p>
+<p>If you didn't request this, you can safely ignore this email.</p>
+```
+
+Guarda ambos cambios en Supabase y solicita un enlace de recuperación nuevo. Los mensajes enviados antes de corregir la plantilla no se pueden reparar.
 
 ## Consultas de comprobacion
 

@@ -62,11 +62,6 @@ export default function App() {
     const isEmailVerifiedRoute = path === "/email-verified";
     const searchParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.slice(1));
-    const recoveryInUrl =
-      (searchParams.get("type") === "recovery" &&
-        (searchParams.has("code") || searchParams.has("access_token"))) ||
-      (hashParams.get("type") === "recovery" &&
-        (hashParams.has("code") || hashParams.has("access_token")));
     const linkError =
       searchParams.has("error") ||
       searchParams.has("error_description") ||
@@ -127,10 +122,7 @@ export default function App() {
           return;
         }
 
-        if (
-          data.session &&
-          (recoveryInUrl || recoverySessionDetected)
-        ) {
+        if (data.session || recoverySessionDetected) {
           setMode("update");
         } else {
           setErrorMessage(
